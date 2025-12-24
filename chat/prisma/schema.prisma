@@ -1,0 +1,63 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model Users {
+  id              Int @id @default(autoincrement())
+  email           String @unique
+  username        String
+  password        String
+  created_at      DateTime @default(now())
+  blacklisted     Boolean @default(false)
+  role            String  @default("GUEST")
+
+  ip              Ip[]
+  room            Room[]
+}
+
+model Ip {
+  id              Int @id @default(autoincrement())
+  login_ip        String
+  userid          Int @unique
+  last_updated    DateTime @default(now())
+
+  user            Users @relation(fields: [userid], references: [id])
+}
+
+model Refresh {
+  id              Int @id @default(autoincrement())
+  email           String @unique
+  refresh_token   String @db.VarChar(255) @unique
+  expired_at      DateTime
+}
+
+
+model Room {
+  id              Int @id @default(autoincrement())
+  userid          Int
+  room_name       String
+  room_desc       String
+  room_code       String @unique
+  created_at      DateTime @default(now())
+  is_privated     Boolean @default(false)
+
+  user            Users @relation(fields: [userid], references: [id])
+}
+
+model Join_room {
+  id              Int @id @default(autoincrement())
+  userid          Int
+  room_code       String
+  created_at      DateTime @default(now())
+}
