@@ -1,0 +1,168 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Socket.IO Test Client</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; margin: 20px; }
+    label { display:block; margin-top:10px; }
+    input[type=text] { width: 60%; padding:6px; }
+    button { padding:6px 12px; margin-left:6px; }
+    #log { margin-top:12px; height:300px; overflow:auto; border:1px solid #ccc; padding:8px; white-space:pre-wrap; background:#fafafa; }
+    #status { font-weight: bold; margin-left:8px; }
+  </style>
+</head>
+<body>
+  <h2>Socket.IO 테스트 클라이언트</h2>
+
+  <label>
+    Server URL (프로토콜 포함, 포트 포함)  
+    <input id="serverUrl" type="text" value="http://localhost:3000" />
+  </label>
+
+  <label>
+    Namespace (예: /channels , 빈값이면 기본 네임스페이스)
+    <input id="namespace" type="text" value="/channels" />
+  </label>
+
+  <label>
+    Auth token (옵션, 서버에서 auth 사용 시)
+    <input id="authToken" type="text" placeholder="토큰이 없으면 비워두세요" />
+  </label>
+
+  <div style="margin-top:10px;">
+    <button id="connectBtn">Connect</button>
+    <button id="disconnectBtn" disabled>Disconnect</button>
+    <span>상태: <span id="status">disconnected</span></span>
+  </div>
+
+  <label>
+    Event name (보낼 이벤트 이름, 기본: message)
+    <input id="eventName" type="text" value="message" />
+  </label>
+
+  <label>
+    Message (보낼 데이터 — 문자열 또는 JSON)
+    <input id="messageInput" type="text" value="hello from client" />
+    <button id="sendBtn" disabled>Send</button>
+  </label>
+
+  <div id="log"></div>
+
+  <!-- socket.io-client CDN (v4.x 계열). 필요 시 서버 버전에 맞춰 변경하세요 -->
+  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+  <script>
+    let socket = null;
+    const logEl = document.getElementById('log');
+    const statusEl = document.getElementById('status');
+    const connectBtn = document.getElementById('connectBtn');
+    const disconnectBtn = document.getElementById('disconnectBtn');
+    const sendBtn = document.getElementById('sendBtn');
+
+    function log(...args) {
+      const time = new Date().toLocaleTimeString();
+      logEl.textContent += `[${time}] ` + args.map(a => (typeof a === 'object' ? JSON.stringify(a) : a)).join(' ') + '\n';
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function setStatus(s) {
+      statusEl.textContent = s;
+    }
+
+    connectBtn.addEventListener('click', () => {
+      const base = document.getElementById('serverUrl').value.trim();
+      let ns = document.getElementById('namespace').value.trim();
+      const token = document.getElementById('authToken').value.trim();
+      if (!base) { alert('Server URL을 입력하세요'); return; }
+
+      // namespace가 비어있으면 기본 네임스페이스로 연결
+      // socket.io client는 io(base + ns) 형태로 연결
+      if (ns === '') {
+        ns = '';
+      } else if (!ns.startsWith('/')) {
+        ns = '/' + ns;
+      }
+
+      // 이미 연결되어 있으면 disconnect 먼저
+      if (socket) {
+        socket.disconnect();
+        socket = null;
+      }
+
+      const connectUrl = base + ns;
+      log('연결 시도 ->', connectUrl);
+
+      const opts = {
+        transports: ['websocket'],
+        forceNew: true,
+        reconnection: false
+      };
+      if (token) {
+        opts.auth = { token };
+      }
+
+      try {
+        socket = io(connectUrl, opts);
+      } catch (err) {
+        log('socket.io client 생성 오류:', err);
+        setStatus('error');
+        return;
+      }
+
+      setStatus('connecting');
+      connectBtn.disabled = true;
+
+      socket.on('connect', () => {
+        log('connected, id=', socket.id);
+        setStatus('connected');
+        disconnectBtn.disabled = false;
+        sendBtn.disabled = false;
+      });
+
+      socket.on('connect_error', (err) => {
+        log('connect_error:', err && err.message ? err.message : err);
+        setStatus('connect_error');
+        connectBtn.disabled = false;
+      });
+
+      socket.on('disconnect', (reason) => {
+        log('disconnected:', reason);
+        setStatus('disconnected');
+        connectBtn.disabled = false;
+        disconnectBtn.disabled = true;
+        sendBtn.disabled = true;
+      });
+
+      // generic message catcher (서버에서 어떤 이벤트든 수신해서 로그에 보여주고 싶으면)
+      socket.onAny((event, ...args) => {
+        log(`<< [event] ${event}:`, ...args);
+      });
+    });
+
+    disconnectBtn.addEventListener('click', () => {
+      if (!socket) return;
+      socket.disconnect();
+      socket = null;
+      setStatus('disconnected');
+      disconnectBtn.disabled = true;
+      sendBtn.disabled = true;
+      connectBtn.disabled = false;
+      log('사용자 요청으로 연결 종료');
+    });
+
+    sendBtn.addEventListener('click', () => {
+      if (!socket || socket.disconnected) { log('socket 연결 없음'); return; }
+      const ev = document.getElementById('eventName').value || 'message';
+      const raw = document.getElementById('messageInput').value || '';
+      let payload = raw;
+
+
+      log(`>> [emit] ${ev}:`, payload);
+      socket.emit(ev, payload, (ack) => {
+        // 서버가 ack 콜백 응답을 보내면 여기로 옴
+        log(`(ack) ${ev}:`, ack);
+      });
+    });
+  </script>
+</body>
+</html>
