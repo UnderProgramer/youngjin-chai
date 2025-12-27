@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <title>Mediasoup Test</title>
+</head>
+<body>
+    <h1>Mediasoup Test</h1>
+
+    <button id="join">Join Room</button>
+    <button id="createTransport">Create Transport</button>
+
+    <pre id="log"></pre>
+
+    <!-- socket.io client -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <!-- mediasoup-client -->
+    <script src="https://unpkg.com/mediasoup-client@3/lib/index.js"></script>
+
+    <script>
+        const log = (msg) => {
+            document.getElementById('log').textContent += msg + '\n';
+        };
+
+        const socket = io('http://localhost:3333'); // 포트 맞게 수정
+
+        let device;
+        let rtpCapabilities;
+        let sendTransport;
+
+        socket.on('connect', () => {
+            log('Socket connected: ' + socket.id);
+        });
+
+        // 1️⃣ joinroom
+        document.getElementById('join').onclick = async () => {
+            socket.emit(
+                'joinroom',
+                { roomId: 'test-room' },
+                async (response) => {
+                    log('joinroom response');
+                    console.log(response);
+
+                    rtpCapabilities = response.rtpCapabilities;
+
+                    device = new mediasoupClient.Device();
+                    await device.load({ routerRtpCapabilities: rtpCapabilities });
+
+                    log('Device loaded');
+                }
+            );
+        };
+
+        // 2️⃣ transport 생성
+        document.getElementById('createTransport').onclick = () => {
+            socket.emit(
+                'createTransport',
+                {
+                    roomId: 'test-room',
+                    direction: 'send',
+                },
+                async (params) => {
+                    log('createTransport response');
+                    console.log(params);
+
+                    sendTransport = device.createSendTransport(params);
+
+                    sendTransport.on('connect', ({ dtlsParameters }, callback) => {
+                        socket.emit(
+                            'connectTransport',
+                            {
+                                transportId: sendTransport.id,
+                                dtlsParameters,
+                            },
+                            () => {
+                                log('Transport connected');
+                                callback();
+                            }
+                        );
+                    });
+
+                    sendTransport.on('connectionstatechange', (state) => {
+                        log('Transport state: ' + state);
+                    });
+                }
+            );
+        };
+    </script>
+</body>
+</html>

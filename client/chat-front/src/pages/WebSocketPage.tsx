@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createSocket } from "../utils/socket";
 import { Socket } from "socket.io-client";
 import { refresh } from "../utils/api";
+import type { socketType } from "../types/SocketType";
 
 export const WebSocketPage = () => {
   const [messages, setMessages] = useState<socketType[]>([]);
@@ -21,8 +22,10 @@ export const WebSocketPage = () => {
         console.log(msg);
       });
 
-      socket.on("message", (data) => {
-        setMessages((prev) => [...prev, data]);
+      socket.on("message", (data: string) => {
+        const parsed: socketType = JSON.parse(data);
+        
+        setMessages((prev) => [...prev, parsed]);
       });
 
       socket.on("SocketErr", (err) => {

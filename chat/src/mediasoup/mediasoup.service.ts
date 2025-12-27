@@ -9,7 +9,7 @@ export class MediasoupService implements OnModuleInit{
     private nextWorkerIndex = 0;
 
     private workers: workersType[] = [];
-    private routers = new Map<string, mediasoup.types.Router>();
+    //private routers = new Map<string, mediasoup.types.Router>();
 
     public async onModuleInit() {
         const numWorkers = os.cpus().length;

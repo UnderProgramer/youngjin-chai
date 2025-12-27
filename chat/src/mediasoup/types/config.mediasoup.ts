@@ -29,6 +29,6 @@ export const mediaCodecs : mediasoup.types.RtpCodecCapability[] = [
             'profile-level-id': '42e01f',
             'level-asymmetry-allowed': 1,
             },
-            preferredPayloadType: 96
+            preferredPayloadType: 97
         },
     ];
