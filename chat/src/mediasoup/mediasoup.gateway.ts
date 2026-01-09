@@ -18,7 +18,7 @@ export class MediasoupGateway implements OnGatewayInit, OnGatewayConnection, OnG
     ){}
 
     afterInit() {
-        this.logger.log('inited mediasoup server')
+        this.logger.log(`[MediasoupGateway] inited mediasoup server`)
     }
 
     handleConnection(client: Socket, ...args: any[]) {
