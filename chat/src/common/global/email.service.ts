@@ -10,15 +10,15 @@ export class EmailService {
         this.transporter = nodemailer.createTransport({
             service: 'gmail',
             auth : {
-                user : 'jojokokoimo@gmail.com',
-                pass : 'ihma ixmy ufwk uzkt',
+                user : '',
+                pass : '',
             }
         })
     }
 
     async sendEmailMessage(email : string, code ?: string) {
         const emailOptions : emailOption = {
-            from : 'jojokokoimo@gmail.com',
+            from : '',
             to : email,
             subject : 'Verify Your Email',
             html : `

@@ -10,7 +10,7 @@ import { loginResponse, refreshResponse, registerResponse, verifyEmail } from '.
 import { findUserResponse } from './dto/find-user-response';
 
 @ApiTags('users')
-@Controller()
+@Controller('auth')
 export class UserController {
     constructor(private userService : UserService){}
 
@@ -34,7 +34,7 @@ export class UserController {
     register(@Body() data : registerRequest) {
         return this.userService.register(data)
     }
-    
+
     @Public()
     @Post('code')
     @ApiOkResponse({
