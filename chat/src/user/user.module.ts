@@ -25,7 +25,7 @@ import { EmailService } from 'src/common/global/email.service';
     UserService,
     prismaClient,
     AuthService,
-    EmailService
+    EmailService,
   ],
   controllers: [UserController]
 })

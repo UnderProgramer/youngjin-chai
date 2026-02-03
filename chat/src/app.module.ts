@@ -7,6 +7,7 @@ import { ConfigModule } from '@nestjs/config';
 
 import { ChatModule } from './chat/chat.module';
 import { MediasoupModule } from './mediasoup/mediasoup.module';
+import { GlobalModule } from './common/global/global.module';
 
 @Module({
   imports: [
@@ -15,7 +16,8 @@ import { MediasoupModule } from './mediasoup/mediasoup.module';
       isGlobal: true,
     }),
     ChatModule,
-    MediasoupModule
+    MediasoupModule,
+    GlobalModule
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -7,13 +7,16 @@ import { Response } from 'express';
 import { registerRequest, registerResponse, loginRequest, loginResponse, refreshResponse, verifyEmail } from './dto/index';
 import { findUserResponse } from './dto/find-user-response';
 import { EmailService } from 'src/common/global/email.service';
+import { ReportRequest } from './dto/report-request';
+import { DiscordService } from 'src/common/global/discord.service';
 
 @Injectable()
 export class UserService {
     constructor(
         private prisma : prismaClient,
         private authService : AuthService,
-        private emailService : EmailService
+        private emailService : EmailService,
+        private discordService : DiscordService
     ){}
 
     private generateCode () {
@@ -37,7 +40,7 @@ export class UserService {
         })
 
         if(!user) {
-            throw new NotFoundException("User not Found : findUser()");
+            throw new NotFoundException("User not Found");
         }
         return user
     }
@@ -197,6 +200,11 @@ export class UserService {
         return {
             accessToken : access
         }
+    }
+
+    async report(email : string, userReportReq : ReportRequest) {
+        const user = await this.findUser(email)
+        this.discordService.reportLogger(user, userReportReq.reason)
     }
 
 }

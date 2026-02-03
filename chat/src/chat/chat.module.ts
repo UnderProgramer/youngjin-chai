@@ -4,6 +4,11 @@ import { AuthService } from "src/user/auth/auth.service";
 
 @Module({
     imports:   [],
-    providers: [ChatGateway, AuthService]
+    providers: [
+        ChatGateway,
+        AuthService,
+        
+        
+    ]
 })
 export class ChatModule {}

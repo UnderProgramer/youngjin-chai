@@ -8,6 +8,8 @@ import express from 'express';
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { loginResponse, refreshResponse, registerResponse, verifyEmail } from './dto';
 import { findUserResponse } from './dto/find-user-response';
+import { Users } from '@prisma/client';
+import { ReportRequest } from './dto/report-request';
 
 @ApiTags('users')
 @Controller('auth')
@@ -83,5 +85,11 @@ export class UserController {
         
         return accessToken
     }
+
+    @Post('report')
+    @HttpCode(200)
+    report(@User('email') email : string, reportReq : ReportRequest) {
+        this.userService.report(email, reportReq)
+    } 
 
 }

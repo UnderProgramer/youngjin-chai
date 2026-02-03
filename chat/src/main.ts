@@ -15,7 +15,10 @@ async function bootstrap() {
     forbidNonWhitelisted : true,
     transform: true,
   }))
-  app.useGlobalFilters(new GlobalExceptionHandler())
+
+  const exceptionFilter = app.get(GlobalExceptionHandler);
+  app.useGlobalFilters(exceptionFilter)
+
   app.enableCors({
     origin: [
       'http://localhost:5173',

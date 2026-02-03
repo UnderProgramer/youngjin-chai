@@ -29,7 +29,7 @@ export class AuthService {
                 type: 'refresh' 
             },
             {
-                secret: this.config.get('JWT_REFRESH_SECRET'),
+                secret: this.config.get<string>('JWT_REFRESH_SECRET'),
                 expiresIn: '7d',
             }
         )

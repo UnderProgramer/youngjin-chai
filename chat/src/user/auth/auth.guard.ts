@@ -8,6 +8,7 @@ import { Logger } from "@nestjs/common";
 @Injectable()
 export class AuthGuard implements CanActivate {
     constructor(private authService: AuthService, private reflector: Reflector){}
+    private log = new Logger(AuthGuard.name)
 
     private extractTokenFromHeader(request: Request): string | undefined {
         const authHeader = request.headers.authorization;
@@ -38,7 +39,7 @@ export class AuthGuard implements CanActivate {
         const request = context.switchToHttp().getRequest()
         const token = this.extractTokenFromHeader(request)
         if(!token) {
-            Logger.error("[AuthGuard] Token not found")
+            this.log.error("Token not found")
             throw new UnauthorizedException()
         }
 
@@ -47,7 +48,7 @@ export class AuthGuard implements CanActivate {
 
             request['user'] = payload
         } catch {
-            Logger.error("Not verified")
+            this.log.error("Not verified")
             throw new UnauthorizedException();
         }
 

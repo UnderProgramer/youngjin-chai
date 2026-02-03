@@ -59,9 +59,11 @@ model Room {
 
 model Join_room {
   id              Int @id @default(autoincrement())
-  userid          Int
-  room_code       String  @unique
+  userid          Int     
+  room_code       String
   created_at      DateTime @default(now())
+
+  @@unique([userid, room_code])
 }
 
 model Verify_code {
@@ -72,4 +74,11 @@ model Verify_code {
   created_at      DateTime @default(now())
 
   user            Users @relation(fields: [userid], references: [id])
+}
+
+model Reports {
+  id              Int @id @default(autoincrement())
+  reporter        Int
+  reason          String
+  created_at      DateTime @default(now())
 }

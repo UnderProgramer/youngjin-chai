@@ -1,7 +1,12 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException } from "@nestjs/common";
+import { ArgumentsHost, Catch, ExceptionFilter, HttpException, Injectable, Logger } from "@nestjs/common";
+import { DiscordService } from "../discord.service";
 
 @Catch(HttpException)
+@Injectable()
 export class GlobalExceptionHandler implements ExceptionFilter {
+    constructor(private readonly discordService : DiscordService){}
+    private log = new Logger()
+
     catch(exception: unknown, host: ArgumentsHost) {
         const ctx = host.switchToHttp();
         const response = ctx.getResponse();
@@ -9,6 +14,8 @@ export class GlobalExceptionHandler implements ExceptionFilter {
 
         if(exception instanceof HttpException) {
             const status = exception.getStatus();
+            this.discordService.errorLogger(status, exception.message, request.url)
+            this.log.error(exception.cause, exception.stack)
             return response.status(status).json({
                                             timestamp: new Date().toISOString(),
                                             path: request.url,
