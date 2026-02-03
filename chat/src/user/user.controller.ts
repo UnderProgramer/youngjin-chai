@@ -86,10 +86,16 @@ export class UserController {
         return accessToken
     }
 
+    @ApiOkResponse({
+        description: "[report response] : 신고 기능",
+        type : ReportRequest
+    })
     @Post('report')
     @HttpCode(200)
     report(@User('email') email : string, reportReq : ReportRequest) {
         this.userService.report(email, reportReq)
+
+        return "신고 완료"
     } 
 
 }
