@@ -7,14 +7,21 @@ import {
 import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { AuthService } from 'src/user/auth/auth.service';
+import { CreateRoom } from './dto/chat.create-room';
+import { ChatService } from './chat.service';
+import { prismaClient } from 'prisma/prisma.client';
 
-@WebSocketGateway(3000, {
-  namespace : "/chat/global",
+@WebSocketGateway({
+  namespace : "/chat",
   cors: '*' 
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit{
   @WebSocketServer() server: Server;
-  constructor(private authService: AuthService){}
+  constructor(
+    private authService: AuthService, 
+    private chatService: ChatService,
+    private prismaClient: prismaClient
+  ){}
 
   private readonly ERROR_MESSAGE = "SocketErr"
 
@@ -32,15 +39,23 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     if(!token){
       client.emit(this.ERROR_MESSAGE, { code: 'UNAUTHORIZED', message: 'Invalid token' })
       client.disconnect()
+      return
     }
-
+    
     try{
 
       const payload = await this.authService.variftyAccessToken(token)
-      client.data.user = {
-        id: payload.sub,
-        username: payload.username,
+
+      const user = await this.prismaClient.users.findUnique({
+        where: { id: payload.sub }
+      })
+
+      if(!user) {
+        client.disconnect();
+        return;
       }
+
+      client.data.user = user
 
       this.logger.log(`connected    : ${client.id}`)
     } catch {
@@ -54,14 +69,48 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     this.logger.log(`disconnected : ${client.id}`)
   }
 
-  @SubscribeMessage('message')
-  handleEvent(@ConnectedSocket() client: Socket, @MessageBody() data : any) {
+  @SubscribeMessage('createRoom')
+  async handleCreateRoom(
+    @ConnectedSocket() client : Socket,
+    @MessageBody() data : CreateRoom
+  ){
+    const user = client.data.user;
+    try {
+      return await this.chatService.createRoom(data, user)
+    }catch (e) {
+      return { success : false, message : e.message }
+    }
+
+  }
+
+  @SubscribeMessage('joinRoom')
+  handleJoin(
+    @ConnectedSocket() client : Socket,
+    @MessageBody() roomCode : string
+  ){
+    const user = client.data.user
+    try {
+      this.chatService.joinRoom(roomCode, user)
+      client.join(roomCode)
+      return { success : true }
+    }catch (e) {
+      return { success : false, message : e.message }
+    } 
+
+  }
+
+  @SubscribeMessage('sendMessage')
+  handleMessage(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data : { roomCode: string; message: string }
+  ) {
+    //추후 메시지 보낸 시간 만들기
     const message = {
       username: client.data.user.username,
-      text: data,
+      text: data.message,
     };
 
-    client.broadcast.emit('message', message)
-    this.logger.log(`${client.data.user.username} : ${data}`)
+    this.server.to(data.roomCode).emit('message', message)
+    //this.logger.log(`${client.data.user.username} : ${data.message}`)
   }
 }

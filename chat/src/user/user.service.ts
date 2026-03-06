@@ -45,8 +45,15 @@ export class UserService {
         return user
     }
 
-    async findUserOne(email : string ) : Promise<findUserResponse> {
-        const user = await this.findUser(email)
+    async findUserOne(id : number ) : Promise<findUserResponse> {
+        const user = await this.prisma.users.findUnique({
+            where : {
+                id : id 
+            }
+        })
+        if(!user) {
+            throw new NotFoundException("User not Found");
+        }
 
         return {
             username : user.username,
@@ -202,8 +209,16 @@ export class UserService {
         }
     }
 
-    async report(email : string, userReportReq : ReportRequest) {
-        const user = await this.findUser(email)
+    async report(id: number, userReportReq : ReportRequest) {
+        const user = await this.prisma.users.findUnique({
+            where : {
+                id : id
+            }
+        })
+        if(!user) {
+            throw new NotFoundException("User not Found");
+        }
+        
         this.discordService.reportLogger(user, userReportReq.reason)
     }
 

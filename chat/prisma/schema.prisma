@@ -26,6 +26,7 @@ model Users {
   ip              Ip[]
   room            Room[]
   verify_code     Verify_code[]
+  messages Messages[]
 }
 
 model Ip {
@@ -81,4 +82,14 @@ model Reports {
   reporter        Int
   reason          String
   created_at      DateTime @default(now())
+}
+
+model Messages {
+  id              Int @id @default(autoincrement())
+  message         String
+  userid          Int
+  created_at      DateTime @default(now())
+  is_deleted      Boolean @default(false)
+
+  user            Users @relation(fields: [userid], references: [id])
 }

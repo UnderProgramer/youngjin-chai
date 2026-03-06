@@ -1,13 +1,43 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { TransportType } from "./types/types.transport";
+import { Peer } from "./types/types.transport";
 import { MediasoupService } from "../mediasoup.service";
 import * as mediasoup from 'mediasoup'
 
 @Injectable()
 export class TransportService {
-    private transports = new Map<string, TransportType>()
-
+    private peers = new Map<string, Peer>()
+    
     constructor(private readonly mediasoupService : MediasoupService){}
+
+    private getPeer(peerId: string): Peer {
+        let peer = this.peers.get(peerId);
+
+        if (!peer) {
+            throw new Error("Not Found Peer")
+        }
+
+        return peer;
+    }
+
+    createPeer(peerId: string, roomId: string, userId: string) {
+        let entry = this.peers.get(peerId)
+        if(!entry) {
+            return
+        }
+        
+        let peer = {
+            peerId,
+            roomId,
+            userId,
+            transports: new Map(),
+            producers : new Map(),
+            dataConsumers: new Map(),
+            consumers: new Map()
+        }
+        this.peers.set(peerId, peer)
+        console.log("피어 생성 완료")
+        
+    }
 
     async createTransport(
         roomId: string,
@@ -20,16 +50,29 @@ export class TransportService {
             listenIps: [{ ip: '0.0.0.0'}],
             enableUdp: true,
             enableTcp: true,
+            enableSctp: true,
             preferUdp: true,
+            numSctpStreams: { OS: 1024, MIS: 1024 },
+            initialAvailableOutgoingBitrate : 1_000_000,
+            appData :{
+                peerId,
+                direction
+            }
         });
+        
+        const peer = this.getPeer(peerId)
+       
+        peer.transports.set(transport.id, transport)
+        transport.enableTraceEvent(['probation', 'bwe']);
 
-        this.transports.set(transport.id, {
-            id: transport.id,
-            transport,
-            direction,
-            peerId,
-            roomId,
-        });
+        transport.on("routerclose", () => {
+            peer?.transports.delete(transport.id);
+        })
+        transport.on("dtlsstatechange", (state) => {
+            if(state === "closed" || state === "failed"){
+                transport.close()
+            }
+        })
 
         return {
             id: transport.id,
@@ -39,28 +82,110 @@ export class TransportService {
         };
     }
 
+    getTransport(transportId: string, peerId: string) {
+        const peer = this.getPeer(peerId)
+        return peer?.transports.get(transportId)
+    }
+
     async connectTransport(
         transportId: string,
+        peerId : string,
         dtlsParameters: mediasoup.types.DtlsParameters,
     ){
-        const entry = this.transports.get(transportId);
-        if (!entry) {
+        const transport = this.getTransport(transportId, peerId)
+        if (!transport) {
             throw new NotFoundException('Transport not found');
         }
 
-        await entry.transport.connect({ dtlsParameters });
+        await transport.connect({ dtlsParameters });
     }
 
-    getTransport(transportId: string) {
-        return this.transports.get(transportId)?.transport;
-    }
 
-    closePeerTransports(peerId: string) {
-        for (const [id, entry] of this.transports) {
-            if (entry.peerId === peerId) {
-                entry.transport.close();
-                this.transports.delete(id);
+    async producer(
+        transportId: string,
+        peerId : string,
+        kind : mediasoup.types.MediaKind,
+        rtpParameters : mediasoup.types.RtpParameters,
+        mediaTag : 'camera' | 'screen' | 'mic'
+    ) {
+        const peer = this.getPeer(peerId)
+        const transport = this.getTransport(transportId, peerId);
+
+        if (!transport) throw new NotFoundException('Transport not found');
+
+        const producer = await transport.produce({
+            kind,
+            rtpParameters,
+            appData : {
+                peerId,
+                mediaTag,
             }
-        }
+        });
+
+        peer.producers.set(producer.id, producer);
+        
+        producer.on("transportclose", () => {
+            peer.producers.delete(producer.id)
+        })
+
+        return producer;
     }
+
+    async consumer(
+        peerId: string,
+        roomId: string,
+        transportId: string,
+        producerId: string,
+        rtpCapabilities: mediasoup.types.RtpCapabilities,
+    ) {
+        const peer = this.getPeer(peerId)
+        const transport = this.getTransport(transportId, peerId)
+
+        if (!transport) throw new NotFoundException('Transport not found');
+
+        const router = await this.mediasoupService.getRouter(roomId);
+
+        if (!router!.canConsume({ producerId, rtpCapabilities })) {
+            throw new Error('Cannot consume');
+        }
+
+        const consumer = await transport.consume({
+            producerId,
+            rtpCapabilities,
+            paused: true,
+        });
+
+        peer.consumers.set(consumer.id, consumer)
+
+        return consumer;
+    }
+
+    async resumeConsumers(
+        consumerId : string,
+        peerId : string,
+    ) {
+        const peer = this.getPeer(peerId)
+        const consumer = peer.consumers.get(consumerId)
+        
+        if(!consumer) {
+            throw new NotFoundException('Consumer not found')
+        }
+
+        if(!consumer.paused) {
+            return;
+        }
+
+        await consumer.resume()
+    }
+
+    async handleDisconnect(peerId : string) {
+        const peer = this.getPeer(peerId)
+
+        peer.transports.forEach(t => t.close());
+        peer.consumers.forEach(c => c.close());
+        peer.dataConsumers.forEach(dc => dc.close())
+
+        this.peers.delete(peerId);
+    }
+
 }

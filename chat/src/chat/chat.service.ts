@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { CreateRoom } from "./dto/chat.create-room";
 import { prismaClient } from "prisma/prisma.client";
 import Hashids from 'hashids'
@@ -20,16 +20,15 @@ export class ChatService {
     }
 
     private generateRoomCode () {
-        let result : string = ''
-        const randomIndex : number = Math.random() * 8
-        result = this.hashids.encode(randomIndex)
+        const randomIndex : number = Math.floor(Math.random() * 1_000_000)
+        let result = this.hashids.encode(randomIndex)
 
         return result
     }
 
     async createRoom(req : CreateRoom, user : Users) {
         const roomCode = this.generateRoomCode()
-
+        
         await this.prisma.room.create({
             data : {
                 room_name : req.roomName,
@@ -47,7 +46,7 @@ export class ChatService {
                 room_code : roomCode
             }
         })
-        if (!room) {throw new BadRequestException('해당 방 코드는 존재 하지 않습니다.')}
+        if (!room) { throw new BadRequestException('해당 방 코드는 존재 하지 않습니다.') }
 
         const joinRoom = await this.prisma.join_room.findFirst({
             where : {
@@ -56,7 +55,9 @@ export class ChatService {
             }
         })
 
-        if(joinRoom?.userid === user.id) {throw new ConflictException('이미 방에 참가한 유저 입니다.')}
+        if(joinRoom?.userid === user.id) {
+            throw new BadRequestException('이미 방에 참가 하셨습니다.')
+        }
 
         await this.prisma.join_room.create({
             data : {

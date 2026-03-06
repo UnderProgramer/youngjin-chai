@@ -1,4 +1,4 @@
-import { Body, Controller, Logger, Post, Get, Ip, Res ,Req ,HttpCode, Put } from '@nestjs/common';
+import { Body, Controller, Logger, Post, Get, Ip, Res ,Req ,HttpCode, Put, UseGuards } from '@nestjs/common';
 import { registerRequest } from './dto/register-reqpuest'
 import { loginRequest } from './dto/login-request';
 import { Public } from 'src/common/decorators/decorator.public';
@@ -8,11 +8,12 @@ import express from 'express';
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { loginResponse, refreshResponse, registerResponse, verifyEmail } from './dto';
 import { findUserResponse } from './dto/find-user-response';
-import { Users } from '@prisma/client';
 import { ReportRequest } from './dto/report-request';
+import { AuthGuard } from './auth/auth.guard';
 
 @ApiTags('users')
 @Controller('auth')
+@UseGuards(AuthGuard)
 export class UserController {
     constructor(private userService : UserService){}
 
@@ -23,8 +24,8 @@ export class UserController {
         type : findUserResponse
     })
     @Get('user')
-    findUser(@User('email') email : string) {
-        return this.userService.findUserOne(email)
+    findUser(@User('sub') id : number) {
+        return this.userService.findUserOne(id)
     }
 
     @Public()
@@ -92,8 +93,8 @@ export class UserController {
     })
     @Post('report')
     @HttpCode(200)
-    report(@User('email') email : string, reportReq : ReportRequest) {
-        this.userService.report(email, reportReq)
+    report(@User('sub') id : number, @Body() reportReq : ReportRequest) {
+        this.userService.report(id, reportReq)
 
         return "신고 완료"
     } 
