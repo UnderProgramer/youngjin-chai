@@ -27,6 +27,5 @@ export interface Peer {
     userId : string;
     transports: Map<string, WebRtcTransport>;
     producers: Map<string, Producer>;
-    dataConsumers: Map<string, DataConsumer>;
     consumers : Map<string, mediasoup.types.Consumer>;
 }

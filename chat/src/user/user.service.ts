@@ -218,7 +218,13 @@ export class UserService {
         if(!user) {
             throw new NotFoundException("User not Found");
         }
-        
+        await this.prisma.reports.create({
+            data : {
+                reporter : user.id,
+                reason : userReportReq.reason,
+            }
+        })
+
         this.discordService.reportLogger(user, userReportReq.reason)
     }
 

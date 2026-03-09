@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { Peer } from "./types/types.transport";
 import { MediasoupService } from "../mediasoup.service";
 import * as mediasoup from 'mediasoup'
+import { WsException } from "@nestjs/websockets";
 
 @Injectable()
 export class TransportService {
@@ -20,23 +21,35 @@ export class TransportService {
     }
 
     createPeer(peerId: string, roomId: string, userId: string) {
-        let entry = this.peers.get(peerId)
-        if(!entry) {
+        if(this.peers.has(peerId)) {
             return
         }
-        
+
         let peer = {
             peerId,
             roomId,
             userId,
             transports: new Map(),
             producers : new Map(),
-            dataConsumers: new Map(),
             consumers: new Map()
         }
         this.peers.set(peerId, peer)
         console.log("피어 생성 완료")
         
+    }
+    
+    getProducersByRoom(roomId: string): string[] {
+        const producerIds: string[] = []
+
+        this.peers.forEach(peer => {
+            if (peer.roomId === roomId) {
+                peer.producers.forEach((_, producerId) => {
+                    producerIds.push(producerId)
+                })
+            }
+        })
+
+        return producerIds
     }
 
     async createTransport(
@@ -47,7 +60,7 @@ export class TransportService {
         const router = await this.mediasoupService.getRouter(roomId);
 
         const transport = await router!.createWebRtcTransport({
-            listenIps: [{ ip: '0.0.0.0'}],
+            listenIps: [{ ip: '0.0.0.0', announcedIp: '127.0.0.1'}],
             enableUdp: true,
             enableTcp: true,
             enableSctp: true,
@@ -61,6 +74,7 @@ export class TransportService {
         });
         
         const peer = this.getPeer(peerId)
+        console.log(peer)
        
         peer.transports.set(transport.id, transport)
         transport.enableTraceEvent(['probation', 'bwe']);
@@ -168,7 +182,7 @@ export class TransportService {
         const consumer = peer.consumers.get(consumerId)
         
         if(!consumer) {
-            throw new NotFoundException('Consumer not found')
+            throw new WsException('Consumer not found')
         }
 
         if(!consumer.paused) {
@@ -183,7 +197,6 @@ export class TransportService {
 
         peer.transports.forEach(t => t.close());
         peer.consumers.forEach(c => c.close());
-        peer.dataConsumers.forEach(dc => dc.close())
 
         this.peers.delete(peerId);
     }

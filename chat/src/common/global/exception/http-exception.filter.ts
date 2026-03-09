@@ -3,7 +3,7 @@ import { DiscordService } from "../discord.service";
 
 @Catch(HttpException)
 @Injectable()
-export class GlobalExceptionHandler implements ExceptionFilter {
+export class HttpExceptionHandler implements ExceptionFilter {
     constructor(private readonly discordService : DiscordService){}
     private log = new Logger()
 

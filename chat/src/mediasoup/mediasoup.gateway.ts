@@ -3,7 +3,6 @@ import { MediasoupService } from "./mediasoup.service";
 import { Socket } from "socket.io";
 import { InternalServerErrorException, Logger, } from "@nestjs/common";
 import { Server } from "socket.io";
-import { JoinRoomDTO } from "./dto/dto.joinroom";
 import { TransportService } from "./transport/transport.service";
 import type { CreateProduce, CreateTransportType } from "./transport/types/types.transport";
 import { AuthService } from "src/user/auth/auth.service";
@@ -86,7 +85,7 @@ export class MediasoupGateway
     const user = client.data.user
     const peerId = client.data.peerId
 
-    await this.transportService.createPeer(peerId, user.id , roomId)
+    this.transportService.createPeer(peerId, roomId , user.id)
 
     const router = await this.mediasoupService.getRouter(roomId);
     
@@ -94,9 +93,11 @@ export class MediasoupGateway
       throw new InternalServerErrorException()
     }
 
+    const existingProducerIds = this.transportService.getProducersByRoom(roomId)
+
     return {
       rtpCapabilities: router.rtpCapabilities,
-
+      existingProducerIds
     };
   }
 
@@ -105,6 +106,9 @@ export class MediasoupGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() data: CreateTransportType,
   ) {
+    console.log('peerId:', client.data.peerId)
+    console.log('roomId:', client.data.roomId)
+
     return await this.transportService.createTransport(
       client.data.roomId,
       client.data.peerId,
@@ -122,6 +126,8 @@ export class MediasoupGateway
       client.data.peerId,
       data.dtlsParameters,
     );
+
+    return { connected: true }
   }
 
 
@@ -137,6 +143,10 @@ export class MediasoupGateway
       data.rtpParameters,
       data.mediaTag,
     );
+
+    console.log('produceData 호출됨!')
+    console.log('roomId:', client.data.roomId)
+    console.log(producer)
 
     // 같은 room의 다른 사용자에게 알림
     client.to(client.data.roomId).emit('newProducer', {
@@ -162,6 +172,11 @@ export class MediasoupGateway
       data.producerId,
       data.rtpCapabilities,
     )
+
+    console.log('consumer:', consumer)
+    console.log('consumer.id:', consumer.id)
+    console.log('consumer.kind:', consumer.kind)
+    console.log('consumer.rtpParameters:', consumer.rtpParameters)
     
     return {
       id: consumer.id,
@@ -177,5 +192,6 @@ export class MediasoupGateway
     @MessageBody() data : { consumerId : string }
   ) {
     this.transportService.resumeConsumers(data.consumerId, client.data.peerId);
+    return { resumed : true }
   }
 }

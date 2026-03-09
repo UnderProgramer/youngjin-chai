@@ -2,7 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
-import { GlobalExceptionHandler } from './common/global/exception/global-exception.filter';
+import { HttpExceptionHandler } from './common/global/exception/http-exception.filter';
 
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 
@@ -16,7 +16,7 @@ async function bootstrap() {
     transform: true,
   }))
 
-  const exceptionFilter = app.get(GlobalExceptionHandler);
+  const exceptionFilter = app.get(HttpExceptionHandler);
   app.useGlobalFilters(exceptionFilter)
 
   app.enableCors({
