@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { Peer } from "./types/types.transport";
 import { MediasoupService } from "../mediasoup.service";
 import * as mediasoup from 'mediasoup'
-import { WsException } from "@nestjs/websockets";
+import { TransportNotFoundException } from "src/common/global/exception/custom-exceptions/ws/TransportNotFoundException";
 
 @Injectable()
 export class TransportService {
@@ -34,7 +34,6 @@ export class TransportService {
             consumers: new Map()
         }
         this.peers.set(peerId, peer)
-        console.log("피어 생성 완료")
         
     }
     
@@ -125,7 +124,7 @@ export class TransportService {
         const peer = this.getPeer(peerId)
         const transport = this.getTransport(transportId, peerId);
 
-        if (!transport) throw new NotFoundException('Transport not found');
+        if (!transport) throw new TransportNotFoundException();
 
         const producer = await transport.produce({
             kind,
@@ -155,7 +154,7 @@ export class TransportService {
         const peer = this.getPeer(peerId)
         const transport = this.getTransport(transportId, peerId)
 
-        if (!transport) throw new NotFoundException('Transport not found');
+        if (!transport) throw new TransportNotFoundException();
 
         const router = await this.mediasoupService.getRouter(roomId);
 
@@ -182,7 +181,7 @@ export class TransportService {
         const consumer = peer.consumers.get(consumerId)
         
         if(!consumer) {
-            throw new WsException('Consumer not found')
+            throw new Error('Consumer not found')
         }
 
         if(!consumer.paused) {

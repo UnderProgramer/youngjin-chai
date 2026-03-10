@@ -8,6 +8,8 @@ import { ConfigModule } from '@nestjs/config';
 import { ChatModule } from './chat/chat.module';
 import { MediasoupModule } from './mediasoup/mediasoup.module';
 import { GlobalModule } from './common/global/global.module';
+import { APP_FILTER } from '@nestjs/core';
+import { GlobalExceptionFilter } from './common/global/exception/global-exception.filter';
 
 @Module({
   imports: [
@@ -20,6 +22,12 @@ import { GlobalModule } from './common/global/global.module';
     GlobalModule
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide : APP_FILTER,
+      useClass : GlobalExceptionFilter,
+    }
+  ],
 })
 export class AppModule {}

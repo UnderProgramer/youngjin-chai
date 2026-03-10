@@ -60,7 +60,7 @@ export class AuthService {
                     secret: secret
                 }
             )
-
+            
             return {
                 sub      : payload.sub
             }

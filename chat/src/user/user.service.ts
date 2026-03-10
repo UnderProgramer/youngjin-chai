@@ -9,6 +9,8 @@ import { findUserResponse } from './dto/find-user-response';
 import { EmailService } from 'src/common/global/email.service';
 import { ReportRequest } from './dto/report-request';
 import { DiscordService } from 'src/common/global/discord.service';
+import { UserNotFoundException } from 'src/common/global/exception/custom-exceptions/http/UserNotFoundException';
+import { UserManager } from './user.manager';
 
 @Injectable()
 export class UserService {
@@ -16,35 +18,9 @@ export class UserService {
         private prisma : prismaClient,
         private authService : AuthService,
         private emailService : EmailService,
-        private discordService : DiscordService
+        private discordService : DiscordService,
+        private userManager : UserManager
     ){}
-
-    private generateCode () {
-        const pool = '1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-        let result : string = ''
-
-        for (let i = 0; i < 6; i++) {
-            const randomIndex = Math.floor(Math.random() * pool.length)
-            result += pool[randomIndex]
-        }
-
-        return result
-    }
-
-
-    private async findUser(email : string) {
-        const user = await this.prisma.users.findUnique({
-            where: {
-                email: email
-            }
-        })
-
-        if(!user) {
-            throw new NotFoundException("User not Found");
-        }
-        return user
-    }
-
     async findUserOne(id : number ) : Promise<findUserResponse> {
         const user = await this.prisma.users.findUnique({
             where : {
@@ -52,7 +28,7 @@ export class UserService {
             }
         })
         if(!user) {
-            throw new NotFoundException("User not Found");
+            throw new UserNotFoundException("User not Found");
         }
 
         return {
@@ -86,8 +62,8 @@ export class UserService {
     }
 
     async sendVerifyEmail(email : string) {
-        const code = this.generateCode()
-        const user = await this.findUser(email)
+        const code = this.userManager.generateCode()
+        const user = await this.userManager.findUserByEmail(email)
 
         const now = new Date();
         const expiresAt = new Date(now.getTime() + 5 * 60 * 1000); //5분
@@ -111,7 +87,7 @@ export class UserService {
     }
 
     async verifyCode (data : verifyEmail) {
-        const user = await this.findUser(data.email)
+        const user = await this.emailService.sendEmailMessage(data.email)
 
         const result = await this.prisma.verify_code.findFirst({
             where: {
@@ -138,7 +114,7 @@ export class UserService {
 
     async login(request: loginRequest, ip: string, res: Response) : Promise<loginResponse>{
 
-        const user = await this.findUser(request.email)
+        const user = await this.emailService.sendEmailMessage(request.email)
 
         const isMatch = await bcrypt.compare(request.password, user.password)
         
@@ -192,7 +168,7 @@ export class UserService {
         }
         await this.authService.verfiyRefreshToken(refreshToken);
         const refresh = await this.prisma.refresh.findUnique({
-                            where: { 
+                            where: {
                                 refresh_token: refreshToken
                             },
                         })
@@ -201,7 +177,7 @@ export class UserService {
             throw new UnauthorizedException("Refresh Token is not found");
         }
 
-        const user = await this.findUser(refresh.email)
+        const user = await this.emailService.sendEmailMessage(refresh.email)
         const access = await this.authService.generateAccessToken(user)
         
         return {
@@ -216,7 +192,7 @@ export class UserService {
             }
         })
         if(!user) {
-            throw new NotFoundException("User not Found");
+            throw new UserNotFoundException("User not Found");
         }
         await this.prisma.reports.create({
             data : {

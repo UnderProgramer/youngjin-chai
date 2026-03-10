@@ -2,8 +2,6 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
-import { HttpExceptionHandler } from './common/global/exception/http-exception.filter';
-
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 
 async function bootstrap() {
@@ -15,9 +13,6 @@ async function bootstrap() {
     forbidNonWhitelisted : true,
     transform: true,
   }))
-
-  const exceptionFilter = app.get(HttpExceptionHandler);
-  app.useGlobalFilters(exceptionFilter)
 
   app.enableCors({
     origin: [

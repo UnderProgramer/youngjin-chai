@@ -8,6 +8,7 @@ import { prismaClient } from 'prisma/prisma.client';
 import { AuthService } from './auth/auth.service';
 import { EmailService } from 'src/common/global/email.service';
 import { DiscordService } from 'src/common/global/discord.service';
+import { UserManager } from './user.manager';
 
 @Module({
   imports: [
@@ -27,8 +28,8 @@ import { DiscordService } from 'src/common/global/discord.service';
     prismaClient,
     AuthService,
     EmailService,
-    DiscordService
-    
+    DiscordService,
+    UserManager
   ],
   controllers: [UserController]
 })

@@ -25,6 +25,22 @@ export class DiscordService {
         })
     }
 
+    WsErrorLogger = (message : string) => {
+        const errWebhook = this.config.get<string>('ERROR_WEBHOOK')
+        
+        axios.post(errWebhook!, {
+            embeds: [
+                {
+                    title: '🚨 Ws-Server Error',
+                    color: 0xff0000,
+                    fields: [
+                        { name: 'Message', value: message, inline: true },
+                    ]
+                }
+            ]
+        })
+    }
+
     reportLogger = (user : Users, reason : string) => {
         const reportWebhook = this.config.get<string>('REPORT_WEBHOOK')
         
