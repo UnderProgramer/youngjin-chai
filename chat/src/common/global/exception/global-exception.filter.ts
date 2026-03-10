@@ -1,8 +1,7 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException, Injectable, Logger } from "@nestjs/common";
+import { ArgumentsHost, ExceptionFilter, HttpException, Injectable, Logger } from "@nestjs/common";
 import { DiscordService } from "../discord.service";
 import { WsException } from "@nestjs/websockets";
 
-@Catch(HttpException)
 @Injectable()
 export class GlobalExceptionFilter implements ExceptionFilter {
     constructor(private readonly discordService : DiscordService){}
