@@ -102,15 +102,31 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   @SubscribeMessage('sendMessage')
   handleMessage(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data : { roomCode: string; message: string }
+    @MessageBody() data : { roomCode: string; message: string, date: string }
   ) {
-    //추후 메시지 보낸 시간 만들기
     const message = {
       username: client.data.user.username,
       text: data.message,
+      date : data.date,
     };
 
     this.server.to(data.roomCode).emit('message', message)
-    //this.logger.log(`${client.data.user.username} : ${data.message}`)
+    //this.logger.log(`${client.data.user.username} : ${data}`)
+    this.chatService.message(client.data.user, data.message)
+
   }
+
+  @SubscribeMessage('inviteUser')
+  handleInviteUser(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data : { roomCode: string; email: string }
+  ){
+    try{
+      this.chatService.invitePrivateRoom(data.roomCode, client.data.user, data.email)
+    } catch(e){
+      return {invited : false, message : e.message}
+    }
+    
+  }
+
 }

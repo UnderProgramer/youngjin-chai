@@ -4,6 +4,7 @@ import { prismaClient } from "prisma/prisma.client";
 import Hashids from 'hashids'
 import { ConfigService } from "@nestjs/config";
 import { Users } from "@prisma/client";
+import { UserNotFoundException } from "src/common/global/exception/custom-exceptions/http/UserNotFoundException";
 
 @Injectable()
 export class ChatService {
@@ -47,6 +48,7 @@ export class ChatService {
             }
         })
         if (!room) { throw new BadRequestException('해당 방 코드는 존재 하지 않습니다.') }
+        if (room.is_privated == true) {throw new BadRequestException('비공개 방입니다.')}
 
         const joinRoom = await this.prisma.join_room.findFirst({
             where : {
@@ -64,6 +66,45 @@ export class ChatService {
                 room_code : roomCode,
                 userid : user.id,
             }
+        })
+    }
+    
+    async invitePrivateRoom(roomCode: string, user: Users , inviteEmail: string ) {
+        const room = await this.prisma.room.findUnique({
+            where : {
+                room_code : roomCode
+            }
+        })
+        if (!room) { throw new BadRequestException('해당 방 코드는 존재 하지 않습니다.') }
+       
+        const inRoomUser = await this.prisma.join_room.findFirst({
+            where: {
+                room_code: roomCode,
+                userid: user.id
+            }
+        })
+        if(!inRoomUser) { throw new BadRequestException('방에 참가한 사람이 아닙니다.') }
+        
+        const inviteUser = await this.prisma.users.findUnique({
+            where: {
+                email: inviteEmail
+            }
+        })
+        if(!inviteUser){ throw new BadRequestException('해당 유저를 찾을수 없습니다.') }
+        
+        const testJoinedUser = await this.prisma.join_room.findFirst({
+            where: {
+                room_code: roomCode,
+                userid: inviteUser.id,
+            }
+        })
+
+        if(testJoinedUser) { throw new BadRequestException('이미 방에 있는 유저 입니다') }
+        await this.prisma.join_room.create({
+                data:{
+                    room_code: roomCode,
+                    userid: inviteUser.id,
+                }
         })
     }
 
@@ -85,5 +126,18 @@ export class ChatService {
         return {
             rooms : result
         }
+    }
+
+    async message(user: Users, message: string,) {
+        if(!message) {
+            return
+        }
+
+        await this.prisma.messages.create({
+            data: {
+                message : message,
+                userid : user.id,
+            }
+        })
     }
 }

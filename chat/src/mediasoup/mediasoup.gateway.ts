@@ -143,11 +143,6 @@ export class MediasoupGateway
       data.rtpParameters,
       data.mediaTag,
     );
-
-    console.log('produceData 호출됨!')
-    console.log('roomId:', client.data.roomId)
-    console.log(producer)
-
     // 같은 room의 다른 사용자에게 알림
     client.to(client.data.roomId).emit('newProducer', {
       producerId: producer.id,
