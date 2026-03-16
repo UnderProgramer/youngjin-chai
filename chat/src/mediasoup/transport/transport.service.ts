@@ -29,7 +29,8 @@ export class TransportService {
             peerId,
             roomId,
             userId,
-            transports: new Map(),
+            sendTransport: new Map(),
+            recvTransport: new Map(),
             producers : new Map(),
             consumers: new Map()
         }
@@ -65,7 +66,7 @@ export class TransportService {
             enableSctp: true,
             preferUdp: true,
             numSctpStreams: { OS: 1024, MIS: 1024 },
-            initialAvailableOutgoingBitrate : 1_000_000,
+            initialAvailableOutgoingBitrate : 2_000_000,
             appData :{
                 peerId,
                 direction
@@ -73,13 +74,18 @@ export class TransportService {
         });
         
         const peer = this.getPeer(peerId)
-        console.log(peer)
+
+        if(transport.appData.direction === 'send') {
+            peer.sendTransport.set(transport.id, transport)
+        } else {
+            peer.recvTransport.set(transport.id, transport)
+        }
        
-        peer.transports.set(transport.id, transport)
-        transport.enableTraceEvent(['probation', 'bwe']);
+        //transport.enableTraceEvent(['probation', 'bwe']);
 
         transport.on("routerclose", () => {
-            peer?.transports.delete(transport.id);
+            peer.sendTransport.delete(transport.id);
+            peer.recvTransport.delete(transport.id);
         })
         transport.on("dtlsstatechange", (state) => {
             if(state === "closed" || state === "failed"){
@@ -97,7 +103,14 @@ export class TransportService {
 
     getTransport(transportId: string, peerId: string) {
         const peer = this.getPeer(peerId)
-        return peer?.transports.get(transportId)
+
+        const send = peer.sendTransport.get(transportId);
+        if (send) return { transport: send, direction: "send" };
+
+        const recv = peer.recvTransport.get(transportId);
+        if (recv) return { transport: recv, direction: "recv" };
+
+        throw new Error("Transport not found");
     }
 
     async connectTransport(
@@ -110,7 +123,7 @@ export class TransportService {
             throw new NotFoundException('Transport not found');
         }
 
-        await transport.connect({ dtlsParameters });
+        await transport.transport.connect({ dtlsParameters });
     }
 
 
@@ -123,10 +136,12 @@ export class TransportService {
     ) {
         const peer = this.getPeer(peerId)
         const transport = this.getTransport(transportId, peerId);
-
+        
         if (!transport) throw new TransportNotFoundException();
+        if(transport.direction !== 'send') throw new Error('Transport direction is not send');
 
-        const producer = await transport.produce({
+
+        const producer = await transport.transport.produce({
             kind,
             rtpParameters,
             appData : {
@@ -155,6 +170,7 @@ export class TransportService {
         const transport = this.getTransport(transportId, peerId)
 
         if (!transport) throw new TransportNotFoundException();
+        if (transport.direction !== 'recv') throw new Error('Transport direction is not recv')
 
         const router = await this.mediasoupService.getRouter(roomId);
 
@@ -162,13 +178,21 @@ export class TransportService {
             throw new Error('Cannot consume');
         }
 
-        const consumer = await transport.consume({
+        const consumer = await transport.transport.consume({
             producerId,
             rtpCapabilities,
             paused: true,
         });
 
         peer.consumers.set(consumer.id, consumer)
+
+        consumer.on("transportclose", () => {
+            peer.consumers.delete(consumer.id)
+        })
+
+        consumer.on("producerclose", () => {
+            peer.consumers.delete(consumer.id)
+        })
 
         return consumer;
     }
@@ -194,8 +218,10 @@ export class TransportService {
     async handleDisconnect(peerId : string) {
         const peer = this.getPeer(peerId)
 
-        peer.transports.forEach(t => t.close());
+        peer.sendTransport.forEach(t => t.close());
+        peer.recvTransport.forEach(t => t.close())
         peer.consumers.forEach(c => c.close());
+        peer.producers.forEach(p => p.close())
 
         this.peers.delete(peerId);
     }

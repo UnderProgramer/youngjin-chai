@@ -5,6 +5,7 @@ import Hashids from 'hashids'
 import { ConfigService } from "@nestjs/config";
 import { Users } from "@prisma/client";
 import { UserNotFoundException } from "src/common/global/exception/custom-exceptions/http/UserNotFoundException";
+import { RoomNotFoundException } from "src/common/global/exception/custom-exceptions/http/RoomNotFoundException";
 
 @Injectable()
 export class ChatService {
@@ -27,8 +28,18 @@ export class ChatService {
         return result
     }
 
-    async createRoom(req : CreateRoom, user : Users) {
+    async createRoom(req : CreateRoom, id : number) {
         const roomCode = this.generateRoomCode()
+
+        const user = await this.prisma.users.findUnique({
+            where: {
+                id : id
+            }
+        })
+
+        if(!user) {
+            throw new UserNotFoundException('User Not Found')
+        }
         
         await this.prisma.room.create({
             data : {
@@ -108,7 +119,7 @@ export class ChatService {
         })
     }
 
-    async getRoom(page : number) {
+    async getRooms(page : number) {
         const pageSize = 8
         const skip = (page - 1) * pageSize
 
@@ -126,6 +137,19 @@ export class ChatService {
         return {
             rooms : result
         }
+    }
+
+    async roomDetail(roomCode : string) {
+        const room = await this.prisma.room.findUnique({
+            where : {
+                room_code : roomCode
+            }
+        })
+        if(!room) {
+            throw new RoomNotFoundException(roomCode)
+        }
+
+        return room
     }
 
     async message(user: Users, message: string,) {

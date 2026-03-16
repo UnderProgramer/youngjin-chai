@@ -1,11 +1,10 @@
-import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { prismaClient } from 'prisma/prisma.client';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth/auth.service';
 import { Response } from 'express';
 
 import { registerRequest, registerResponse, loginRequest, loginResponse, refreshResponse, verifyEmail } from './dto/index';
-import { findUserResponse } from './dto/find-user-response';
 import { EmailService } from 'src/common/global/email.service';
 import { ReportRequest } from './dto/report-request';
 import { DiscordService } from 'src/common/global/discord.service';
@@ -21,14 +20,14 @@ export class UserService {
         private discordService : DiscordService,
         private userManager : UserManager
     ){}
-    async findUserOne(id : number ) : Promise<findUserResponse> {
+    async findUserOne(id : number ) {
         const user = await this.prisma.users.findUnique({
             where : {
                 id : id 
             }
         })
         if(!user) {
-            throw new UserNotFoundException("User not Found");
+            throw new UserNotFoundException(`${id}`);
         }
 
         return {
@@ -192,7 +191,7 @@ export class UserService {
             }
         })
         if(!user) {
-            throw new UserNotFoundException("User not Found");
+            throw new UserNotFoundException(`${id}`);
         }
         await this.prisma.reports.create({
             data : {

@@ -23,7 +23,7 @@ export class UserController {
         description : "[find User Response]",
         type : findUserResponse
     })
-    @Get('user')
+    @Get('profile')
     findUser(@User('sub') id : number) {
         return this.userService.findUserOne(id)
     }

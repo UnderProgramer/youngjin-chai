@@ -68,21 +68,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   handleDisconnect(@ConnectedSocket() client: Socket) {
     this.logger.log(`disconnected : ${client.id}`)
   }
-
-  @SubscribeMessage('createRoom')
-  async handleCreateRoom(
-    @ConnectedSocket() client : Socket,
-    @MessageBody() data : CreateRoom
-  ){
-    const user = client.data.user;
-    try {
-      return await this.chatService.createRoom(data, user)
-    }catch (e) {
-      return { success : false, message : e.message }
-    }
-
-  }
-
   @SubscribeMessage('joinRoom')
   handleJoin(
     @ConnectedSocket() client : Socket,
@@ -96,7 +81,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     }catch (e) {
       return { success : false, message : e.message }
     } 
-
   }
 
   @SubscribeMessage('sendMessage')
@@ -126,7 +110,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     } catch(e){
       return {invited : false, message : e.message}
     }
-    
   }
 
 }
