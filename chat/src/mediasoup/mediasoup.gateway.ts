@@ -167,11 +167,6 @@ export class MediasoupGateway
       data.producerId,
       data.rtpCapabilities,
     )
-
-    console.log('consumer:', consumer)
-    console.log('consumer.id:', consumer.id)
-    console.log('consumer.kind:', consumer.kind)
-    console.log('consumer.rtpParameters:', consumer.rtpParameters)
     
     return {
       id: consumer.id,

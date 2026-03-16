@@ -3,7 +3,6 @@ import { ChatGateway } from "./chat.gateway";
 import { AuthService } from "src/user/auth/auth.service";
 import { ChatService } from "./chat.service";
 import { prismaClient } from "prisma/prisma.client";
-import { UserService } from "src/user/user.service";
 
 @Module({
     imports:   [],
@@ -11,8 +10,7 @@ import { UserService } from "src/user/user.service";
         ChatGateway,
         AuthService,
         ChatService,
-        prismaClient,
-        UserService,
+        prismaClient
     ]
 })
 export class ChatModule {}

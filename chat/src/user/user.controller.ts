@@ -47,6 +47,7 @@ export class UserController {
     verifyCode(@Body() data : verifyEmail) {
         return this.userService.verifyCode(data)
     }
+    
     @Public()
     @Post('email')
     @ApiOkResponse({

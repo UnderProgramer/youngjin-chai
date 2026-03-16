@@ -7,7 +7,6 @@ import {
 import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { AuthService } from 'src/user/auth/auth.service';
-import { CreateRoom } from './dto/chat.create-room';
 import { ChatService } from './chat.service';
 import { prismaClient } from 'prisma/prisma.client';
 
