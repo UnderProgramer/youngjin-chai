@@ -50,7 +50,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         if(exception instanceof WsException) {
             this.discordService.WsErrorLogger(exception.message)
 
-            this.log.error(exception.cause, exception.stack)
+            this.log.error(exception.message, exception.stack)
 
             const error = exception.getError()
 
