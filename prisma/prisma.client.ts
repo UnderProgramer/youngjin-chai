@@ -5,19 +5,23 @@ import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 @Injectable()
 export class prismaClient extends PrismaClient implements OnModuleInit, OnModuleDestroy  {
 
-    constructor() {
-        const adapter = new PrismaMariaDb({
-            host: process.env.DB_HOST!,
-            port: Number(process.env.DB_PORT!),
-            user: process.env.DB_USER!,
-            password: process.env.DB_PASS!,
-            database: process.env.DB_NAME!,
-            connectionLimit: 5
-        });
+    // constructor() {
+    //     const adapter = new PrismaMariaDb({
+    //         host: process.env.DB_HOST!,
+    //         port: Number(process.env.DB_PORT!),
+    //         user: process.env.DB_USER!,
+    //         password: process.env.DB_PASS!,
+    //         database: process.env.DB_NAME!,
+    //         connectionLimit: 5
+    //     });
 
-        super({
-            adapter
-        });
+    //     super({
+    //         adapter
+    //     });
+    // }
+
+    constructor() {
+        super();
     }
 
     async onModuleInit() {
