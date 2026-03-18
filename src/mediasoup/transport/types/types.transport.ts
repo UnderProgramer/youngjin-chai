@@ -1,5 +1,5 @@
 import * as mediasoup from 'mediasoup'
-import { Producer, WebRtcTransport } from 'mediasoup/types'
+import { types } from 'mediasoup'
 
 export interface TransportType {
     readonly id : string
@@ -25,8 +25,8 @@ export interface Peer {
     peerId : string;
     roomId : string;
     userId : string;
-    sendTransport: Map<string, WebRtcTransport>;
-    recvTransport:Map<string, WebRtcTransport>
-    producers: Map<string, Producer>;
+    sendTransport: Map<string, types.WebRtcTransport>;
+    recvTransport:Map<string, types.WebRtcTransport>
+    producers: Map<string, types.Producer>;
     consumers : Map<string, mediasoup.types.Consumer>;
 }
