@@ -5,5 +5,6 @@ COPY prisma ./prisma
 RUN npm install
 COPY . .
 RUN npm run build
+RUN ls -la /usr/src/app/dist
 EXPOSE 3000
 CMD ["node", "dist/main.js"]
