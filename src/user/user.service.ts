@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { prismaClient } from 'prisma/prisma.client';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth/auth.service';
@@ -20,6 +20,8 @@ export class UserService {
         private discordService : DiscordService,
         private userManager : UserManager
     ){}
+    private logger = new Logger()
+
     async findUserOne(id : number ) {
         const user = await this.prisma.users.findUnique({
             where : {
@@ -40,7 +42,9 @@ export class UserService {
     }
 
     async register(req : registerRequest) : Promise<registerResponse> {
+        this.logger.log('Attempting to register new user');
         const hash = await bcrypt.hash(req.password, 12);
+        this.logger.log('Password hashed successfully');
         
         const user = await this.prisma.users.create({
                         data:{
@@ -53,6 +57,7 @@ export class UserService {
                             email: true
                         }
                     })
+        this.logger.log('User created successfully in the database');
 
         return {
             username : user.username,
