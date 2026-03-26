@@ -118,7 +118,12 @@ export class UserService {
 
     async login(request: loginRequest, ip: string, res: Response) : Promise<loginResponse>{
 
-        const user = await this.emailService.sendEmailMessage(request.email)
+        const user = await this.prisma.users.findUnique({
+            where : {
+                email : request.email
+            }
+        })
+        if(!user) { throw new UnauthorizedException("User Not Found") }
 
         const isMatch = await bcrypt.compare(request.password, user.password)
         
