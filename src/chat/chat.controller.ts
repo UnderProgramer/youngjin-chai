@@ -10,18 +10,17 @@ export class ChatController {
         private chatService : ChatService,
     ) {}
 
-    @Public()
     @Post()
     async createRoom(@Body() req : CreateRoom, @User('sub') id : number) {
-        this.chatService.createRoom(req, id)
+        return this.chatService.createRoom(req, id)
     }
-    @Public()
+
     @Get()
     async getRooms(@Query('page') page : number) {
         const rooms = await this.chatService.getRooms(page)
         return rooms
     }
-    @Public()
+    
     @Get('/:roomCode')
     async getRoomDetail(@Param('roomCode') roomCode: string) {
         const room = await this.chatService.roomDetail(roomCode)

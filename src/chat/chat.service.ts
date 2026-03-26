@@ -50,6 +50,10 @@ export class ChatService {
                 is_privated : req.roomIsPrivate,
             }
         })
+
+        return {
+            roomCode : roomCode
+        }
     }
 
     async joinRoom(roomCode : string, user : Users) {
