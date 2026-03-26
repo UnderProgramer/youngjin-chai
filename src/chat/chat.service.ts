@@ -30,6 +30,9 @@ export class ChatService {
 
     async createRoom(req : CreateRoom, id : number) {
         const roomCode = this.generateRoomCode()
+        if(!id) {
+            throw new UserNotFoundException('User id not found')
+        }
 
         const user = await this.prisma.users.findUnique({
             where: {
