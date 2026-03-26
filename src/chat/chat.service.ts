@@ -120,8 +120,12 @@ export class ChatService {
     }
 
     async getRooms(page : number) {
+        let skip : number | undefined = undefined
+        if(page && page > 0) {
+            skip = (page - 1) * 8
+        }
+        skip = skip ?? 0
         const pageSize = 8
-        const skip = (page - 1) * pageSize
 
         const result = await this.prisma.room.findMany({
             where : {
