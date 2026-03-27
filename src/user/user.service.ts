@@ -91,7 +91,7 @@ export class UserService {
     }
 
     async verifyCode (data : verifyEmail) {
-        const user = await this.emailService.sendEmailMessage(data.email)
+        const user = await this.userManager.findUserByEmail(data.email)
 
         const result = await this.prisma.verify_code.findFirst({
             where: {
