@@ -35,7 +35,7 @@ export class EmailService {
         try {
             return await this.transporter.sendMail(emailOptions)
         } catch (e){
-            throw new BadRequestException(`[ERROR] : your email? : email \n${e}`)
+            throw new BadRequestException(`[ERROR] : your email? : ${email}\n code : ${code} \n${e}`)
         }
     }
 }
