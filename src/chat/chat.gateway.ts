@@ -33,7 +33,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   async handleConnection(@ConnectedSocket() client: Socket) {
-    const token = client.handshake.auth.token
+    const token = client.handshake.auth.token ?? client.handshake.headers.authorization ?? client.handshake.query.token
 
     if(!token){
       client.emit(this.ERROR_MESSAGE, { code: 'UNAUTHORIZED', message: 'Invalid token' })
@@ -67,6 +67,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   handleDisconnect(@ConnectedSocket() client: Socket) {
     this.logger.log(`disconnected : ${client.id}`)
   }
+
   @SubscribeMessage('joinRoom')
   handleJoin(
     @ConnectedSocket() client : Socket,

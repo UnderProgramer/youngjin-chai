@@ -6,7 +6,6 @@ import { ConfigService } from "@nestjs/config";
 import { Users } from "@prisma/client";
 import { UserNotFoundException } from "src/common/global/exception/custom-exceptions/http/UserNotFoundException";
 import { RoomNotFoundException } from "src/common/global/exception/custom-exceptions/http/RoomNotFoundException";
-import { noop } from "rxjs";
 
 @Injectable()
 export class ChatService {
@@ -69,38 +68,18 @@ export class ChatService {
         if (!room) { throw new BadRequestException('해당 방 코드는 존재 하지 않습니다.') }
         if (room.is_privated == true) {throw new BadRequestException('비공개 방입니다.')}
 
-        const joinRoom = await this.prisma.join_room.findFirst({
-            where : {
-                userid : user.id,
-                room_code : roomCode
-            }
-        })
-
-        if(joinRoom?.userid === user.id) {
-            await this.prisma.join_room.upsert({
-                where : {
-                    userid_room_code : {
-                        room_code : roomCode,
-                        userid : user.id
-                    }
-                },
-                create : {  
-                    room_code : roomCode,
-                    userid : user.id
-                },
-                update : {
-                    room_code : roomCode,
-                    userid : user.id,
-                    created_at : new Date()
+        await this.prisma.join_room.upsert({
+            where: {
+                userid_room_code: {
+                    userid: user.id,
+                    room_code: roomCode
                 }
-            })
-        }
-
-        await this.prisma.join_room.create({
-            data : {
-                room_code : roomCode,
-                userid : user.id,
-            }
+            },
+            create: {
+                room_code: roomCode,
+                userid: user.id,
+            },
+            update: {}
         })
     }
     
