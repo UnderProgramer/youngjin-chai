@@ -30,7 +30,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
             const status = exception.getStatus()
             const res = exception.getResponse()
 
-            this.discordService.errorLogger(status, exception.message, request.url)
+            //this.discordService.errorLogger(status, exception.message, request.url)
 
             this.log.error(exception.cause, exception.stack)
 

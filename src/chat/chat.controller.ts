@@ -2,7 +2,6 @@ import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
 import { ChatService } from "./chat.service";
 import { CreateRoom } from "./dto/chat.create-room";
 import { User } from "src/common/decorators/decorator.user";
-import { Public } from "src/common/decorators/decorator.public";
 
 @Controller('/room')
 export class ChatController {

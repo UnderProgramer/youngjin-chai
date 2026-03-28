@@ -95,9 +95,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     };
 
     this.server.to(data.roomCode).emit('message', message)
-    //this.logger.log(`${client.data.user.username} : ${data}`)
+    this.logger.log(`${client.data.user.username} : ${data}`)
     this.chatService.message(client.data.user, data.message)
-
   }
 
   @SubscribeMessage('inviteUser')
