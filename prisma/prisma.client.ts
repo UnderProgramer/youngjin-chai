@@ -6,6 +6,19 @@ import pg from 'pg'
 
 @Injectable()
 export class prismaClient extends PrismaClient implements OnModuleInit, OnModuleDestroy  {
+    private static createConnectionString() {
+        const connectionString = process.env.DATABASE_URL ?? "";
+
+        if (
+            connectionString.includes("sslmode=require") &&
+            !connectionString.includes("uselibpqcompat=true") &&
+            !connectionString.includes("sslmode=verify-full")
+        ) {
+            return connectionString.replace("sslmode=require", "sslmode=verify-full");
+        }
+
+        return connectionString;
+    }
 
     // constructor() {
     //     const adapter = new PrismaMariaDb({
@@ -23,7 +36,7 @@ export class prismaClient extends PrismaClient implements OnModuleInit, OnModule
     // }
 
     constructor() {
-        const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL })
+        const pool = new pg.Pool({ connectionString: prismaClient.createConnectionString() })
         const adapter = new PrismaPg(pool)
         
         super({

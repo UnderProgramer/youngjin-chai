@@ -29,10 +29,19 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         if(exception instanceof HttpException) {
             const status = exception.getStatus()
             const res = exception.getResponse()
+            const message =
+                typeof res === "string"
+                    ? res
+                    : Array.isArray((res as any).message)
+                        ? (res as any).message.join(", ")
+                        : (res as any).message ?? exception.message;
 
             //this.discordService.errorLogger(status, exception.message, request.url)
 
-            this.log.error(exception.cause, exception.stack)
+            this.log.error(
+                `${request.method} ${request.url} -> ${status} ${message}`,
+                exception.stack,
+            )
 
             return response.status(status).json({
                 ...(typeof res === "string" ? { message: res } : res),
@@ -41,6 +50,19 @@ export class GlobalExceptionFilter implements ExceptionFilter {
                 method: request.method,
             })
         }
+
+        this.log.error(
+            `${request.method} ${request.url} -> 500 Internal Server Error`,
+            exception instanceof Error ? exception.stack : undefined,
+        )
+
+        return response.status(500).json({
+            message: "Internal server error",
+            statusCode: 500,
+            timestamp: new Date().toISOString(),
+            path: request.url,
+            method: request.method,
+        })
     }
 
     private handleWsException(exception: unknown, host: ArgumentsHost) {

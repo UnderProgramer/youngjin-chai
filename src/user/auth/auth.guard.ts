@@ -1,14 +1,15 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from "@nestjs/common";
+import { CanActivate, ExecutionContext, Injectable, Logger } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { Request } from "express";
 import { IS_PUBLIC_KEY } from "../../common/decorators/decorator.public";
 import { AuthService } from "./auth.service";
-import { Logger } from "@nestjs/common";
+import { AccessTokenNotFoundException } from "src/common/global/exception/custom-exceptions/http/AccessTokenNotFoundException";
+import { InvalidAccessTokenException } from "src/common/global/exception/custom-exceptions/http/InvalidAccessTokenException";
 
 @Injectable()
 export class AuthGuard implements CanActivate {
     constructor(private authService: AuthService, private reflector: Reflector){}
-    private log = new Logger(AuthGuard.name)
+    private readonly log = new Logger(AuthGuard.name)
 
     private extractTokenFromHeader(request: Request): string | undefined {
         const authHeader = request.headers.authorization;
@@ -39,17 +40,18 @@ export class AuthGuard implements CanActivate {
         const request = context.switchToHttp().getRequest()
         const token = this.extractTokenFromHeader(request)
         if(!token) {
-            this.log.error("Token not found")
-            throw new UnauthorizedException()
+            this.log.warn(`Access token not found: ${request.method} ${request.url}`)
+            throw new AccessTokenNotFoundException()
         }
 
-        try{
+        try {
             const payload = await this.authService.variftyAccessToken(token)
 
             request['user'] = payload
-        } catch {
-            this.log.error("Not verified")
-            throw new UnauthorizedException();
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Unknown token verification error";
+            this.log.warn(`Access token verification failed: ${request.method} ${request.url} - ${message}`)
+            throw new InvalidAccessTokenException();
         }
 
         return true;

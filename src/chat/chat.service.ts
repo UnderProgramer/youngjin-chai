@@ -1,174 +1,111 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
-import { CreateRoom } from "./dto/chat.create-room";
-import { prismaClient } from "prisma/prisma.client";
-import Hashids from 'hashids'
-import { ConfigService } from "@nestjs/config";
+import { Injectable } from "@nestjs/common";
 import { Users } from "@prisma/client";
-import { UserNotFoundException } from "src/common/global/exception/custom-exceptions/http/UserNotFoundException";
+import { RoomAccessDeniedException } from "src/common/global/exception/custom-exceptions/http/RoomAccessDeniedException";
+import { RoomAlreadyJoinedException } from "src/common/global/exception/custom-exceptions/http/RoomAlreadyJoinedException";
 import { RoomNotFoundException } from "src/common/global/exception/custom-exceptions/http/RoomNotFoundException";
+import { RoomParticipantNotFoundException } from "src/common/global/exception/custom-exceptions/http/RoomParticipantNotFoundException";
+import { RoomAccessDeniedException as WsRoomAccessDeniedException } from "src/common/global/exception/custom-exceptions/ws/RoomAccessDeniedException";
+import { RoomAlreadyJoinedException as WsRoomAlreadyJoinedException } from "src/common/global/exception/custom-exceptions/ws/RoomAlreadyJoinedException";
+import { RoomNotFoundException as WsRoomNotFoundException } from "src/common/global/exception/custom-exceptions/ws/RoomNotFoundException";
+import { RoomParticipantNotFoundException as WsRoomParticipantNotFoundException } from "src/common/global/exception/custom-exceptions/ws/RoomParticipantNotFoundException";
+import { UserNotFoundException } from "src/common/global/exception/custom-exceptions/http/UserNotFoundException";
+import { UserNotFoundException as WsUserNotFoundException } from "src/common/global/exception/custom-exceptions/ws/UserNotFoundException";
+import { UserManager } from "src/user/user.manager";
+import { ChatManager } from "./chat.manager";
+import { ChatRepository } from "./chat.repository";
+import { CreateRoom } from "./dto/chat.create-room";
 
 @Injectable()
 export class ChatService {
-    private hashids : Hashids
-    private salt : string
-
     constructor(
-        private prisma : prismaClient,
-        private config : ConfigService
+        private readonly chatRepository: ChatRepository,
+        private readonly chatManager: ChatManager,
+        private readonly userManager: UserManager,
+    ) {}
 
-    ){
-        this.salt = this.config.get<string>('ROOM_SALT')!
-        this.hashids = new Hashids(this.salt, 8)
-    }
+    async createRoom(req: CreateRoom, id: number) {
+        const user = await this.userManager.getUserByIdOrThrow(id);
+        const roomCode = await this.chatManager.generateUniqueRoomCode();
 
-    private generateRoomCode () {
-        const randomIndex : number = Math.floor(Math.random() * 1_000_000)
-        let result = this.hashids.encode(randomIndex)
-
-        return result
-    }
-
-    async createRoom(req : CreateRoom, id : number) {
-        const roomCode = this.generateRoomCode()
-        if(!id) {
-            throw new UserNotFoundException('User id not found')
-        }
-
-        const user = await this.prisma.users.findUnique({
-            where: {
-                id : id
-            }
-        })
-
-        if(!user) {
-            throw new UserNotFoundException('User Not Found')
-        }
-        
-        await this.prisma.room.create({
-            data : {
-                room_name : req.roomName,
-                room_code : roomCode,
-                room_desc : req.roomDescription,
-                userid    : user.id,
-                is_privated : req.roomIsPrivate,
-            }
-        })
+        await this.chatRepository.createRoom({
+            roomName: req.roomName,
+            roomDescription: req.roomDescription,
+            roomCode,
+            userId: user.id,
+            isPrivate: req.roomIsPrivate,
+        });
 
         return {
-            roomCode : roomCode
+            roomCode,
+        };
+    }
+
+    async joinRoom(roomCode: string, user: Users) {
+        try {
+            const room = await this.chatManager.getRoomByCodeOrThrow(roomCode);
+            this.chatManager.ensureRoomIsPublic(room);
+            await this.chatRepository.upsertJoinRoom(user.id, roomCode);
+        } catch (error) {
+            if (error instanceof RoomNotFoundException) {
+                throw new WsRoomNotFoundException(roomCode);
+            }
+
+            if (error instanceof RoomAccessDeniedException) {
+                throw new WsRoomAccessDeniedException(roomCode);
+            }
+
+            throw error;
         }
     }
 
-    async joinRoom(roomCode : string, user : Users) {
-        const room = await this.prisma.room.findUnique({
-            where : {
-                room_code : roomCode
-            }
-        })
-        if (!room) { throw new BadRequestException('해당 방 코드는 존재 하지 않습니다.') }
-        if (room.is_privated == true) {throw new BadRequestException('비공개 방입니다.')}
+    async invitePrivateRoom(roomCode: string, user: Users, inviteEmail: string) {
+        let inviteUserId: number | undefined;
 
-        await this.prisma.join_room.upsert({
-            where: {
-                userid_room_code: {
-                    userid: user.id,
-                    room_code: roomCode
-                }
-            },
-            create: {
-                room_code: roomCode,
-                userid: user.id,
-            },
-            update: {}
-        })
-    }
-    
-    async invitePrivateRoom(roomCode: string, user: Users , inviteEmail: string ) {
-        const room = await this.prisma.room.findUnique({
-            where : {
-                room_code : roomCode
-            }
-        })
-        if (!room) { throw new BadRequestException('해당 방 코드는 존재 하지 않습니다.') }
-       
-        const inRoomUser = await this.prisma.join_room.findFirst({
-            where: {
-                room_code: roomCode,
-                userid: user.id
-            }
-        })
-        if(!inRoomUser) { throw new BadRequestException('방에 참가한 사람이 아닙니다.') }
-        
-        const inviteUser = await this.prisma.users.findUnique({
-            where: {
-                email: inviteEmail
-            }
-        })
-        if(!inviteUser){ throw new BadRequestException('해당 유저를 찾을수 없습니다.') }
-        
-        const testJoinedUser = await this.prisma.join_room.findFirst({
-            where: {
-                room_code: roomCode,
-                userid: inviteUser.id,
-            }
-        })
+        try {
+            await this.chatManager.getRoomByCodeOrThrow(roomCode);
+            await this.chatManager.ensureUserJoinedRoom(roomCode, user.id);
 
-        if(testJoinedUser) { throw new BadRequestException('이미 방에 있는 유저 입니다') }
-        await this.prisma.join_room.create({
-                data:{
-                    room_code: roomCode,
-                    userid: inviteUser.id,
-                }
-        })
-    }
+            const inviteUser = await this.userManager.getUserByEmailOrThrow(inviteEmail);
+            inviteUserId = inviteUser.id;
+            await this.chatManager.ensureUserNotJoinedRoom(roomCode, inviteUser.id);
 
-    async getRooms(page : number) {
-        let skip : number | undefined = undefined
-        if(page && page > 0) {
-            skip = (page - 1) * 8
+            await this.chatRepository.createJoinRoom(inviteUser.id, roomCode);
+        } catch (error) {
+            if (error instanceof RoomNotFoundException) {
+                throw new WsRoomNotFoundException(roomCode);
+            }
+
+            if (error instanceof RoomParticipantNotFoundException) {
+                throw new WsRoomParticipantNotFoundException(roomCode, user.id);
+            }
+
+            if (error instanceof RoomAlreadyJoinedException) {
+                throw new WsRoomAlreadyJoinedException(roomCode, inviteUserId ?? user.id);
+            }
+
+            if (error instanceof UserNotFoundException) {
+                throw new WsUserNotFoundException(inviteEmail);
+            }
+
+            throw error;
         }
-        skip = skip ?? 0
-        const pageSize = 8
+    }
 
-        const result = await this.prisma.room.findMany({
-            where : {
-                is_privated : false
-            },
-            take : pageSize,
-            skip : skip,
-            orderBy : {
-                created_at : 'asc'
-            }
-        })
+    async getRooms(page?: number) {
+        const pagination = this.chatManager.normalizePage(page);
+        const rooms = await this.chatRepository.findPublicRooms(pagination.skip, pagination.pageSize);
 
         return {
-            rooms : result
-        }
+            rooms,
+        };
     }
 
-    async roomDetail(roomCode : string) {
-        const room = await this.prisma.room.findUnique({
-            where : {
-                room_code : roomCode
-            }
-        })
-        if(!room) {
-            throw new RoomNotFoundException(roomCode)
-        }
-
-        return room
+    async roomDetail(roomCode: string) {
+        return this.chatManager.getRoomByCodeOrThrow(roomCode);
     }
 
-    async message(user: Users, message: string,) {
-        if(!message) {
-            return
-        }
-
-        await this.prisma.messages.create({
-            data: {
-                message : message,
-                userid : user.id,
-            }
-        })
+    async message(user: Users, message: string) {
+        const sanitizedMessage = this.chatManager.validateMessage(message);
+        await this.chatRepository.createMessage(user.id, sanitizedMessage);
     }
 }

@@ -1,216 +1,125 @@
-import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
-import { prismaClient } from 'prisma/prisma.client';
+import { Injectable, Logger } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
-import { AuthService } from './auth/auth.service';
 import { Response } from 'express';
-
-import { registerRequest, registerResponse, loginRequest, loginResponse, refreshResponse, verifyEmail } from './dto/index';
-import { EmailService } from 'src/common/global/email.service';
-import { ReportRequest } from './dto/report-request';
 import { DiscordService } from 'src/common/global/discord.service';
-import { UserNotFoundException } from 'src/common/global/exception/custom-exceptions/http/UserNotFoundException';
+import { EmailService } from 'src/common/global/email.service';
+import {
+    loginRequest,
+    loginResponse,
+    refreshResponse,
+    registerRequest,
+    registerResponse,
+    reportResponse,
+    sendEmailResponse,
+    verifyEmail,
+} from './dto';
+import { ReportRequest } from './dto/report-request';
+import { AuthService } from './auth/auth.service';
 import { UserManager } from './user.manager';
+import { UserRepository } from './user.repository';
 
 @Injectable()
 export class UserService {
     constructor(
-        private prisma : prismaClient,
-        private authService : AuthService,
-        private emailService : EmailService,
-        private discordService : DiscordService,
-        private userManager : UserManager
-    ){}
-    private logger = new Logger()
+        private readonly authService: AuthService,
+        private readonly emailService: EmailService,
+        private readonly discordService: DiscordService,
+        private readonly userManager: UserManager,
+        private readonly userRepository: UserRepository,
+    ) {}
 
-    async findUserOne(id : number ) {
-        const user = await this.prisma.users.findUnique({
-            where : {
-                id : id 
-            }
-        })
-        if(!user) {
-            throw new UserNotFoundException(`${id}`);
-        }
+    private readonly logger = new Logger(UserService.name);
+
+    async findUserOne(id: number) {
+        const user = await this.userManager.getUserByIdOrThrow(id);
 
         return {
-            username : user.username,
-            email : user.email,
-            blacklisted : user.blacklisted,
-            role : user.role
-        }
-        
+            username: user.username,
+            email: user.email,
+            blacklisted: user.blacklisted,
+            role: user.role,
+        };
     }
 
-    async register(req : registerRequest) : Promise<registerResponse> {
+    async register(req: registerRequest): Promise<registerResponse> {
         this.logger.log('Attempting to register new user');
+        await this.userManager.ensureEmailNotExists(req.email);
+
         const hash = await bcrypt.hash(req.password, 12);
-        this.logger.log('Password hashed successfully');
-        
-        const user = await this.prisma.users.create({
-                        data:{
-                            username:       req.username,
-                            email:          req.email,
-                            password:       hash,
-                        },
-                        select: {
-                            username: true,
-                            email: true
-                        }
-                    })
+        const user = await this.userRepository.createUser({
+            username: req.username,
+            email: req.email,
+            password: hash,
+        });
+
         this.logger.log('User created successfully in the database');
 
         return {
-            username : user.username,
-            email    : user.email
-        }
+            username: user.username,
+            email: user.email,
+        };
     }
 
-    async sendVerifyEmail(email : string) {
-        const code = this.userManager.generateCode()
-        const user = await this.userManager.findUserByEmail(email)
+    async sendVerifyEmail(email: string): Promise<sendEmailResponse> {
+        const code = this.userManager.generateCode();
+        const user = await this.userManager.getUserByEmailOrThrow(email);
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-        const now = new Date();
-        const expiresAt = new Date(now.getTime() + 5 * 60 * 1000); //5분
+        await this.emailService.sendEmailMessage(email, code);
+        await this.userRepository.upsertVerifyCode(user.id, code, expiresAt);
 
-        await this.emailService.sendEmailMessage(email, code)
-
-        await this.prisma.verify_code.upsert({
-            where : {
-                userid : user.id
-            },
-            create : {
-                code : code,
-                userid : user.id,
-                expired_at : expiresAt,
-            },
-            update : {
-                code : code,
-                expired_at : expiresAt
-            }
-        })
+        return {
+            success: true,
+            message: 'Verification email has been sent.',
+        };
     }
 
-    async verifyCode (data : verifyEmail) {
-        const user = await this.userManager.findUserByEmail(data.email)
+    async verifyCode(data: verifyEmail) {
+        await this.userManager.validateVerificationCode(data.email, data.code);
+        await this.userRepository.markUserVerifiedByEmail(data.email);
 
-        const result = await this.prisma.verify_code.findFirst({
-            where: {
-                userid : user.id
-            },
-            orderBy : {
-                created_at : 'desc'
-            }
-        })
-        if(!result){ throw new BadRequestException('인증 코드 만료 됨') }
-        if(result.code != data.code) { throw new BadRequestException('인증 코드가 일치 하지 않음') }
-
-        await this.prisma.users.update({
-            where : {
-                email : data.email
-            },
-            data : {
-                is_verified : true
-            }
-        })
-
-        return true
+        return true;
     }
 
-    async login(request: loginRequest, ip: string, res: Response) : Promise<loginResponse>{
-
-        const user = await this.prisma.users.findUnique({
-            where : {
-                email : request.email
-            }
-        })
-        if(!user) { throw new UnauthorizedException("User Not Found") }
-
-        const isMatch = await bcrypt.compare(request.password, user.password)
-        
-        if (!isMatch) { throw new UnauthorizedException("password is Not valid") }
-
-        const accessToken = await this.authService.generateAccessToken(user)
-        const refreshToken = await this.authService.generateRefreshToken(user)
-
+    async login(request: loginRequest, ip: string, res: Response): Promise<loginResponse> {
+        const user = await this.userManager.validateLoginUser(request.email, request.password);
+        const accessToken = await this.authService.generateAccessToken(user);
+        const refreshToken = await this.authService.generateRefreshToken(user);
         const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-        await this.prisma.ip.upsert({
-            where: { userid: user.id },
-            create : {
-                userid: user.id,
-                login_ip: ip
-            },
-            update: {
-                login_ip: ip
-            }
-        })
-        
-        await this.prisma.refresh.upsert({
-            where: { email: user.email },
-            create: {
-                email: user.email,
-                refresh_token: refreshToken,
-                expired_at: expiresAt
-            },
-            update: {
-                refresh_token: refreshToken,
-                expired_at: expiresAt
-            },
-        });
+        await this.userRepository.upsertLoginIp(user.id, ip);
+        await this.userRepository.upsertRefreshToken(user.email, refreshToken, expiresAt);
 
         res.cookie('refresh_token', refreshToken, {
             httpOnly: true,
             sameSite: 'none',
             secure: true,
             path: '/',
-        })
+        });
 
         return {
-            accessToken : accessToken,
-        }
+            accessToken,
+        };
     }
 
+    async refresh(refreshToken?: string): Promise<refreshResponse> {
+        const refresh = await this.userManager.getRefreshOrThrow(refreshToken);
+        await this.authService.verfiyRefreshToken(refresh.refresh_token);
+        const user = await this.userManager.getUserByEmailOrThrow(refresh.email);
+        const accessToken = await this.authService.generateAccessToken(user);
 
-    async refresh(refreshToken: string) : Promise<refreshResponse> {
-        if(!refreshToken) {
-            throw new BadRequestException("refresh token not found")
-        }
-        await this.authService.verfiyRefreshToken(refreshToken);
-        const refresh = await this.prisma.refresh.findUnique({
-                            where: {
-                                refresh_token: refreshToken
-                            },
-                        })
-
-        if(!refresh) {
-            throw new UnauthorizedException("Refresh Token is not found");
-        }
-
-        const user = await this.emailService.sendEmailMessage(refresh.email)
-        const access = await this.authService.generateAccessToken(user)
-        
         return {
-            accessToken : access
-        }
+            accessToken,
+        };
     }
 
-    async report(id: number, userReportReq : ReportRequest) {
-        const user = await this.prisma.users.findUnique({
-            where : {
-                id : id
-            }
-        })
-        if(!user) {
-            throw new UserNotFoundException(`${id}`);
-        }
-        await this.prisma.reports.create({
-            data : {
-                reporter : user.id,
-                reason : userReportReq.reason,
-            }
-        })
+    async report(id: number, userReportReq: ReportRequest): Promise<reportResponse> {
+        const user = await this.userManager.getUserByIdOrThrow(id);
+        await this.userRepository.createReport(user.id, userReportReq.reason);
+        this.discordService.reportLogger(user, userReportReq.reason);
 
-        this.discordService.reportLogger(user, userReportReq.reason)
+        return {
+            message: 'Report submitted successfully.',
+        };
     }
-
 }
