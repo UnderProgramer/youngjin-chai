@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { Response } from 'express';
-import { DiscordService } from 'src/common/global/discord.service';
-import { EmailService } from 'src/common/global/email.service';
+import { DiscordService } from '../common/global/discord.service';
+import { EmailService } from '../common/global/email.service';
 import {
     loginRequest,
     loginResponse,
@@ -12,11 +12,12 @@ import {
     reportResponse,
     sendEmailResponse,
     verifyEmail,
-} from './dto';
+} from './dto/index';
 import { ReportRequest } from './dto/report-request';
 import { AuthService } from './auth/auth.service';
 import { UserManager } from './user.manager';
 import { UserRepository } from './user.repository';
+import { UploadProfileRequest } from './dto/upload-profile-request';
 
 @Injectable()
 export class UserService {
@@ -95,6 +96,7 @@ export class UserService {
             sameSite: 'none',
             secure: true,
             path: '/',
+            maxAge: 7 * 24 * 60 * 60 * 1000,
         });
 
         return {
@@ -122,4 +124,34 @@ export class UserService {
             message: 'Report submitted successfully.',
         };
     }
-}
+
+    async uploadProfilePicture(
+        file: Express.Multer.File,
+        userId: number,
+    ) {
+        const user = await this.userManager.getUserByIdOrThrow(userId);
+        const pictureUrl = `/uploads/${file.filename}`;
+        const originalName = file.originalname;
+        const pictureName = file.filename;
+        const updatedAt = new Date(Date.now());
+        updatedAt.toISOString();
+
+        const uploadData: UploadProfileRequest = {
+            pictureName,
+            originalName,
+            pictureUrl,
+            userId: user.id,
+            updatedAt,
+        };
+
+        await this.userRepository.upsertProfilePicture(uploadData);
+    }
+
+    async getProfilePicture(userId: number) {
+        const user = await this.userManager.getUserByIdOrThrow(userId);
+        const picture = await this.userRepository.getProfilePictureByUserId(user.id);
+
+        return picture;
+
+    }  
+} 

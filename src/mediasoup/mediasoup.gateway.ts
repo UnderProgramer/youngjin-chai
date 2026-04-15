@@ -11,9 +11,10 @@ import {
 import { InternalServerErrorException, Logger } from "@nestjs/common";
 import { Server, Socket } from "socket.io";
 import { v4 as uuidv4 } from 'uuid';
-import { WsUnauthorizedException } from "src/common/global/exception/custom-exceptions/ws/WsUnauthorizedException";
-import { AuthService } from "src/user/auth/auth.service";
-import { UserManager } from "src/user/user.manager";
+// import { EmailVerificationRequiredException } from "../common/global/exception/custom-exceptions/ws/EmailVerificationRequiredException";
+// import { WsUnauthorizedException } from "../common/global/exception/custom-exceptions/ws/WsUnauthorizedException";
+// import { AuthService } from "../user/auth/auth.service";
+// import { UserManager } from "../user/user.manager";
 import { MediasoupService } from "./mediasoup.service";
 import { TransportService } from "./transport/transport.service";
 import type { CreateProduce, CreateTransportType } from "./transport/types/types.transport";
@@ -26,54 +27,108 @@ export class MediasoupGateway
     implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
     @WebSocketServer()
-    server: Server;
+    server!: Server;
 
     private readonly logger = new Logger(MediasoupGateway.name);
-    private readonly errorMessage = "SocketErr";
 
     constructor(
         private readonly mediasoupService: MediasoupService,
         private readonly transportService: TransportService,
-        private readonly authService: AuthService,
-        private readonly userManager: UserManager,
+        // private readonly authService: AuthService,
+        // private readonly userManager: UserManager,
     ) {}
 
-    afterInit() {
+    // private extractToken(client: Socket): string | undefined {
+    //     const rawToken =
+    //         client.handshake.auth.token ??
+    //         client.handshake.headers.authorization ??
+    //         client.handshake.query.token;
+    //
+    //     const token = Array.isArray(rawToken) ? rawToken[0] : rawToken;
+    //
+    //     if (typeof token !== "string" || !token.trim()) {
+    //         return undefined;
+    //     }
+    //
+    //     return token.startsWith("Bearer ")
+    //         ? token.slice("Bearer ".length)
+    //         : token;
+    // }
+    //
+    // private toSocketMiddlewareError(exception: WsUnauthorizedException | EmailVerificationRequiredException) {
+    //     const payload = exception.getError() as { message?: string };
+    //     const error = new Error(payload.message ?? "Socket authorization failed.") as Error & {
+    //         data?: ReturnType<WsUnauthorizedException["getError"]>;
+    //     };
+    //
+    //     error.data = payload;
+    //     return error;
+    // }
+
+    afterInit(server: Server) {
+        /*
+        server.use(async (client: Socket, next) => {
+            const token = this.extractToken(client);
+
+            if (!token) {
+                next(this.toSocketMiddlewareError(new WsUnauthorizedException()));
+                return;
+            }
+
+            try {
+                const payload = await this.authService.variftyAccessToken(token);
+                const user = await this.userManager.getUserByIdOrThrow(payload.sub);
+
+                if (!user.is_verified) {
+                    next(this.toSocketMiddlewareError(new EmailVerificationRequiredException()));
+                    return;
+                }
+
+                client.data.user = user;
+                client.data.peerId = uuidv4();
+
+                next();
+            } catch {
+                next(this.toSocketMiddlewareError(new WsUnauthorizedException()));
+            }
+        });
+        */
+
+        server.use((client: Socket, next) => {
+            // Test-only bypass for mediasoup socket auth.
+            client.data.peerId = uuidv4();
+            client.data.user = { id: `guest-${client.id}` };
+            next();
+        });
+
         this.logger.log(`inited mediasoup server`);
     }
 
     async handleConnection(client: Socket) {
-        const token = client.handshake.auth.token;
-
-        if (!token) {
-            client.emit(this.errorMessage, new WsUnauthorizedException().getError());
-            client.disconnect();
-            return;
-        }
-
-        try {
-            const payload = await this.authService.variftyAccessToken(token);
-            const user = await this.userManager.getUserByIdOrThrow(payload.sub);
-
-            this.logger.log(`connected : ${client.id}`);
-            client.data.user = user;
-            client.data.peerId = uuidv4();
-        } catch {
-            client.emit(this.errorMessage, new WsUnauthorizedException().getError());
-            client.disconnect();
-        }
+        this.logger.log(`connected : ${client.id}`);
     }
 
     async handleDisconnect(client: Socket) {
         this.logger.log(`disconnected : ${client.id}`);
-        client.leave(client.data.roomId);
-
+        const roomId = client.data.roomId;
         const peerId = client.data.peerId;
+
+        if (roomId && peerId) {
+            this.server.to(roomId).emit('peerLeft', { peerId });
+        }
+
+        client.leave(roomId);
+
         if (!peerId) {
             return;
         }
-
-        await this.transportService.handleDisconnect(peerId);
+        
+        try {
+            await this.transportService.handleDisconnect(peerId);
+        } catch (e: unknown) {
+            const error = e instanceof Error ? e : new Error(String(e));
+            this.logger.warn(`handleDisconnect 실패: ${error.message}`);
+        }
     }
 
     @SubscribeMessage('joinroom')
@@ -81,13 +136,15 @@ export class MediasoupGateway
         @ConnectedSocket() client: Socket,
         @MessageBody() roomId: string,
     ) {
+        const peerId = client.data.peerId ?? uuidv4();
+        const userId = String(client.data.user?.id ?? `guest-${client.id}`);
+
+        client.data.peerId = peerId;
+
         client.join(roomId);
         client.data.roomId = roomId;
 
-        const user = client.data.user;
-        const peerId = client.data.peerId;
-
-        this.transportService.createPeer(peerId, roomId, user.id);
+        this.transportService.createPeer(peerId, roomId, userId);
 
         const router = await this.mediasoupService.getRouter(roomId);
 

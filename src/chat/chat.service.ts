@@ -1,16 +1,16 @@
 import { Injectable } from "@nestjs/common";
 import { Users } from "@prisma/client";
-import { RoomAccessDeniedException } from "src/common/global/exception/custom-exceptions/http/RoomAccessDeniedException";
-import { RoomAlreadyJoinedException } from "src/common/global/exception/custom-exceptions/http/RoomAlreadyJoinedException";
-import { RoomNotFoundException } from "src/common/global/exception/custom-exceptions/http/RoomNotFoundException";
-import { RoomParticipantNotFoundException } from "src/common/global/exception/custom-exceptions/http/RoomParticipantNotFoundException";
-import { RoomAccessDeniedException as WsRoomAccessDeniedException } from "src/common/global/exception/custom-exceptions/ws/RoomAccessDeniedException";
-import { RoomAlreadyJoinedException as WsRoomAlreadyJoinedException } from "src/common/global/exception/custom-exceptions/ws/RoomAlreadyJoinedException";
-import { RoomNotFoundException as WsRoomNotFoundException } from "src/common/global/exception/custom-exceptions/ws/RoomNotFoundException";
-import { RoomParticipantNotFoundException as WsRoomParticipantNotFoundException } from "src/common/global/exception/custom-exceptions/ws/RoomParticipantNotFoundException";
-import { UserNotFoundException } from "src/common/global/exception/custom-exceptions/http/UserNotFoundException";
-import { UserNotFoundException as WsUserNotFoundException } from "src/common/global/exception/custom-exceptions/ws/UserNotFoundException";
-import { UserManager } from "src/user/user.manager";
+import { RoomAccessDeniedException } from "../common/global/exception/custom-exceptions/http/RoomAccessDeniedException";
+import { RoomAlreadyJoinedException } from "../common/global/exception/custom-exceptions/http/RoomAlreadyJoinedException";
+import { RoomNotFoundException } from "../common/global/exception/custom-exceptions/http/RoomNotFoundException";
+import { RoomParticipantNotFoundException } from "../common/global/exception/custom-exceptions/http/RoomParticipantNotFoundException";
+import { RoomAccessDeniedException as WsRoomAccessDeniedException } from "../common/global/exception/custom-exceptions/ws/RoomAccessDeniedException";
+import { RoomAlreadyJoinedException as WsRoomAlreadyJoinedException } from "../common/global/exception/custom-exceptions/ws/RoomAlreadyJoinedException";
+import { RoomNotFoundException as WsRoomNotFoundException } from "../common/global/exception/custom-exceptions/ws/RoomNotFoundException";
+import { RoomParticipantNotFoundException as WsRoomParticipantNotFoundException } from "../common/global/exception/custom-exceptions/ws/RoomParticipantNotFoundException";
+import { UserNotFoundException } from "../common/global/exception/custom-exceptions/http/UserNotFoundException";
+import { UserNotFoundException as WsUserNotFoundException } from "../common/global/exception/custom-exceptions/ws/UserNotFoundException";
+import { UserManager } from "../user/user.manager";
 import { ChatManager } from "./chat.manager";
 import { ChatRepository } from "./chat.repository";
 import { CreateRoom } from "./dto/chat.create-room";
@@ -44,7 +44,8 @@ export class ChatService {
         try {
             const room = await this.chatManager.getRoomByCodeOrThrow(roomCode);
             this.chatManager.ensureRoomIsPublic(room);
-            await this.chatRepository.upsertJoinRoom(user.id, roomCode);
+            // Test-only: skip persisting joined room membership.
+            // await this.chatRepository.upsertJoinRoom(user.id, roomCode);
         } catch (error) {
             if (error instanceof RoomNotFoundException) {
                 throw new WsRoomNotFoundException(roomCode);

@@ -3,8 +3,8 @@ import { Reflector } from "@nestjs/core";
 import { Request } from "express";
 import { IS_PUBLIC_KEY } from "../../common/decorators/decorator.public";
 import { AuthService } from "./auth.service";
-import { AccessTokenNotFoundException } from "src/common/global/exception/custom-exceptions/http/AccessTokenNotFoundException";
-import { InvalidAccessTokenException } from "src/common/global/exception/custom-exceptions/http/InvalidAccessTokenException";
+import { AccessTokenNotFoundException } from "../../common/global/exception/custom-exceptions/http/AccessTokenNotFoundException";
+import { InvalidAccessTokenException } from "../../common/global/exception/custom-exceptions/http/InvalidAccessTokenException";
 
 @Injectable()
 export class AuthGuard implements CanActivate {

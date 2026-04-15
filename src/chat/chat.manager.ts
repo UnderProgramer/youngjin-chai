@@ -2,11 +2,11 @@ import { Injectable, InternalServerErrorException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Room } from "@prisma/client";
 import Hashids from "hashids";
-import { RoomAccessDeniedException } from "src/common/global/exception/custom-exceptions/http/RoomAccessDeniedException";
-import { RoomAlreadyJoinedException } from "src/common/global/exception/custom-exceptions/http/RoomAlreadyJoinedException";
-import { RoomNotFoundException } from "src/common/global/exception/custom-exceptions/http/RoomNotFoundException";
-import { RoomParticipantNotFoundException } from "src/common/global/exception/custom-exceptions/http/RoomParticipantNotFoundException";
-import { MessageRequiredException } from "src/common/global/exception/custom-exceptions/ws/MessageRequiredException";
+import { RoomAccessDeniedException } from "../common/global/exception/custom-exceptions/http/RoomAccessDeniedException";
+import { RoomAlreadyJoinedException } from "../common/global/exception/custom-exceptions/http/RoomAlreadyJoinedException";
+import { RoomNotFoundException } from "../common/global/exception/custom-exceptions/http/RoomNotFoundException";
+import { RoomParticipantNotFoundException } from "../common/global/exception/custom-exceptions/http/RoomParticipantNotFoundException";
+import { MessageRequiredException } from "../common/global/exception/custom-exceptions/ws/MessageRequiredException";
 import { ChatRepository } from "./chat.repository";
 
 @Injectable()

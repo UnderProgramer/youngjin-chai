@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
 import {
     ApiBearerAuth,
     ApiCreatedResponse,
+    ApiForbiddenResponse,
     ApiNotFoundResponse,
     ApiOkResponse,
     ApiOperation,
@@ -9,7 +10,10 @@ import {
     ApiTags,
     ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
-import { User } from "src/common/decorators/decorator.user";
+import { AllowUnverified } from "../common/decorators/decorator.allow-unverified";
+import { User } from "../common/decorators/decorator.user";
+import { UseGuards } from "@nestjs/common";
+import { EmailVerifiedGuard } from "../user/auth/email-verified.guard";
 import { ChatService } from "./chat.service";
 import { CreateRoomResponse } from "./dto/chat.create-room-response";
 import { CreateRoom } from "./dto/chat.create-room";
@@ -20,6 +24,7 @@ import { RoomResponse } from "./dto/chat.room-response";
 @ApiTags('rooms')
 @ApiBearerAuth('access-token')
 @Controller('/room')
+@UseGuards(EmailVerifiedGuard)
 export class ChatController {
     constructor(private readonly chatService: ChatService) {}
 
@@ -32,6 +37,7 @@ export class ChatController {
         type: CreateRoomResponse,
     })
     @ApiUnauthorizedResponse({ description: '유효한 access token이 필요합니다.' })
+    @ApiForbiddenResponse({ description: '이메일 인증이 완료된 사용자만 접근할 수 있습니다.' })
     @Post()
     async createRoom(@Body() req: CreateRoom, @User('sub') id: number) {
         return this.chatService.createRoom(req, id);
@@ -51,6 +57,7 @@ export class ChatController {
         type: Number,
         description: '페이지 번호. 기본값은 1입니다.',
     })
+    @AllowUnverified()
     @Get()
     async getRooms(@Query() query: RoomPageQuery) {
         return this.chatService.getRooms(query.page);
@@ -65,6 +72,7 @@ export class ChatController {
         type: RoomResponse,
     })
     @ApiNotFoundResponse({ description: '해당 roomCode의 채팅방이 없습니다.' })
+    @ApiForbiddenResponse({ description: '이메일 인증이 완료된 사용자만 접근할 수 있습니다.' })
     @Get('/:roomCode')
     async getRoomDetail(@Param('roomCode') roomCode: string) {
         return this.chatService.roomDetail(roomCode);

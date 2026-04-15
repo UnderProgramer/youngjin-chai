@@ -5,5 +5,5 @@ export class sendEmailRequest {
     @IsDefined()
     @IsEmail()
     @ApiProperty({ example: "example@email.com" })
-    readonly email: string;
+    readonly email!: string;
 }

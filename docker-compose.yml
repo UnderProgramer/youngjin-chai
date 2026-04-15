@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  mediasoup-server:
+    build: .
+    container_name: youngjin-chai
+    restart: always
+    network_mode: host
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - MEDIASOUP_ANNOUNCED_IP=${MEDIASOUP_ANNOUNCED_IP}
+    env_file:
+      - .env

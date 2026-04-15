@@ -14,19 +14,18 @@ RealTime
 
 ## Architecture
 
-![architecture](./architecture/architecture.drawio.png)
+![signalling](./architecture/signaling.drawio.png)
+![webrtc](./architecture/webrtc.drawio.png)
 
 ## Features
 
-- WebRTC media streaming using mediasoup
-- WebRTC screen share using mediasoup
-- SFU architecture for scalable real-time communication
-- WebSocket signaling server built with NestJS
-- Room-based media session management
-- Dynamic WebRtcTransport creation and management
+- mediasoup를 이용한 영상 통화
+- mediasoup를 이용한 화면 공유
+- nestjs로 만든 웹 소켓 시그널링 서버 
+- 방기준 세션 관리
 - Producer / Consumer media pipeline
-- Peer state management using in-memory store
-- JWT-based authentication for socket connections
+- Peer in-memory 저장 관리
+- JWT기반 인증 및 소켓 인증
 
 ## Installation
 

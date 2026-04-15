@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Ip, Logger, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Ip, Logger, Post, Req, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import express from 'express';
 import {
     ApiBadRequestResponse,
@@ -11,8 +11,8 @@ import {
     ApiTags,
     ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { User } from 'src/common/decorators/decorator.user';
-import { Public } from 'src/common/decorators/decorator.public';
+import { User } from '../common/decorators/decorator.user';
+import { Public } from '../common/decorators/decorator.public';
 import { AuthGuard } from './auth/auth.guard';
 import {
     loginResponse,
@@ -22,16 +22,26 @@ import {
     sendEmailRequest,
     sendEmailResponse,
     verifyEmail,
-} from './dto';
+} from './dto/index';
 import { loginRequest } from './dto/login-request';
 import { registerRequest } from './dto/register-reqpuest';
 import { findUserResponse } from './dto/find-user-response';
 import { ReportRequest } from './dto/report-request';
 import { UserService } from './user.service';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { type Express } from 'express';
+import { diskStorage } from 'multer';
+import { v4 as uuidv4 } from 'uuid';
+
+function generateFileName(req: any, file: any, cb: any) {
+    const unique = `${Date.now()}-${uuidv4()}`;
+    const ext = file.originalname.split('.').pop();
+    cb(null, `${unique}.${ext}`);
+}
 
 @ApiTags('users')
 @ApiBearerAuth('access-token')
-@Controller('auth')
+@Controller('api/users')
 @UseGuards(AuthGuard)
 export class UserController {
     constructor(private readonly userService: UserService) {}
@@ -51,7 +61,28 @@ export class UserController {
     findUser(@User('sub') id: number) {
         return this.userService.findUserOne(id);
     }
+    
+    @Public()
+    @Post('profile/image')
+    @UseInterceptors(FileInterceptor('profile', {
+        storage: diskStorage({
+            destination: './uploads',
+            filename: generateFileName,
+        })
+    }))
+    async uploadProfilePicture(
+        @UploadedFile() file : Express.Multer.File,
+        @User('sub') id: number,
+    ) {
+        await this.userService.uploadProfilePicture(file, id);
+        return true;
+    }
 
+    @Get('profile/image')
+    async getProfilePicture(@User('sub') id: number) {
+        return this.userService.getProfilePicture(id);
+    }
+    
     @Public()
     @ApiOperation({
         summary: '회원가입',
@@ -62,7 +93,7 @@ export class UserController {
         type: registerResponse,
     })
     @ApiBadRequestResponse({ description: '잘못된 요청이거나 이미 존재하는 이메일입니다.' })
-    @Post('register')
+    @Post('auth/register')
     register(@Body() data: registerRequest) {
         return this.userService.register(data);
     }
@@ -77,7 +108,7 @@ export class UserController {
         example: true,
     })
     @ApiBadRequestResponse({ description: '인증 코드가 없거나, 만료되었거나, 일치하지 않습니다.' })
-    @Post('code')
+    @Post('auth/code')
     verifyCode(@Body() data: verifyEmail) {
         return this.userService.verifyCode(data);
     }
@@ -93,7 +124,7 @@ export class UserController {
         type: sendEmailResponse,
     })
     @ApiBadRequestResponse({ description: '잘못된 이메일이거나 사용자를 찾을 수 없습니다.' })
-    @Post('email')
+    @Post('auth/email')
     sendCode(@Body() body: sendEmailRequest) {
         return this.userService.sendVerifyEmail(body.email);
     }
@@ -108,7 +139,7 @@ export class UserController {
         type: loginResponse,
     })
     @ApiUnauthorizedResponse({ description: '이메일 또는 비밀번호가 올바르지 않습니다.' })
-    @Post('login')
+    @Post('auth/login')
     @HttpCode(200)
     login(
         @Body() data: loginRequest,
@@ -129,7 +160,7 @@ export class UserController {
         type: refreshResponse,
     })
     @ApiUnauthorizedResponse({ description: 'refresh token이 없거나 유효하지 않습니다.' })
-    @Post('refresh')
+    @Post('auth/refresh')
     @HttpCode(200)
     refresh(@Req() req: express.Request) {
         const refreshToken = req.cookies['refresh_token'];

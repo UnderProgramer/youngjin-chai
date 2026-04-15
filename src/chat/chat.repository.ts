@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { prismaClient } from "prisma/prisma.client";
+import { prismaClient } from "../../prisma/prisma.client";
 
 @Injectable()
 export class ChatRepository {

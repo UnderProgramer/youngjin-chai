@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { DiscordService } from 'src/common/global/discord.service';
-import { EmailService } from 'src/common/global/email.service';
-import { prismaClient } from 'prisma/prisma.client';
+import { DiscordService } from '../common/global/discord.service';
+import { EmailService } from '../common/global/email.service';
+import { prismaClient } from '../../prisma/prisma.client';
 import { AuthModule } from './auth/auth.module';
 import { AuthService } from './auth/auth.service';
 import { UserController } from './user.controller';

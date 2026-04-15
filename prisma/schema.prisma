@@ -23,10 +23,36 @@ model Users {
   is_verified     Boolean @default(false)
   role            String  @default("GUEST")
 
-  ip              Ip[]
-  room            Room[]
-  verify_code     Verify_code[]
-  messages Messages[]
+  ip                Ip[]
+  room              Room[]
+  verify_code       Verify_code[]
+  messages          Messages[]
+  profile_picture   ProfilePicture[]
+  pictures_at_chat  PicturesAtChat[]
+}
+
+model ProfilePicture {
+  id              Int @id @default(autoincrement())
+  picture_url     String
+  picture_name    String
+  original_name   String
+  userid          Int @unique
+  updated_at      DateTime
+  created_at      DateTime @default(now())
+
+  user            Users @relation(fields: [userid], references: [id])
+}
+
+model PicturesAtChat {
+  id              Int @id @default(autoincrement())
+  picture_url     String
+  picture_name    String
+  original_name    String
+  userid          Int
+  room_code       String
+  created_at      DateTime @default(now())
+
+  user            Users @relation(fields: [userid], references: [id])
 }
 
 model Ip {

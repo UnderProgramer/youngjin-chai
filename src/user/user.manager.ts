@@ -1,13 +1,14 @@
 import { Injectable } from "@nestjs/common";
 import * as bcrypt from "bcrypt";
-import { InvalidCredentialsException } from "src/common/global/exception/custom-exceptions/http/InvalidCredentialsException";
-import { RefreshTokenNotFoundException } from "src/common/global/exception/custom-exceptions/http/RefreshTokenNotFoundException";
-import { UserAlreadyExistsException } from "src/common/global/exception/custom-exceptions/http/UserAlreadyExistsException";
-import { UserNotFoundException } from "src/common/global/exception/custom-exceptions/http/UserNotFoundException";
-import { VerificationCodeExpiredException } from "src/common/global/exception/custom-exceptions/http/VerificationCodeExpiredException";
-import { VerificationCodeMismatchException } from "src/common/global/exception/custom-exceptions/http/VerificationCodeMismatchException";
-import { VerificationCodeNotFoundException } from "src/common/global/exception/custom-exceptions/http/VerificationCodeNotFoundException";
+import { InvalidCredentialsException } from "../common/global/exception/custom-exceptions/http/InvalidCredentialsException";
+import { RefreshTokenNotFoundException } from "../common/global/exception/custom-exceptions/http/RefreshTokenNotFoundException";
+import { UserAlreadyExistsException } from "../common/global/exception/custom-exceptions/http/UserAlreadyExistsException";
+import { UserNotFoundException } from "../common/global/exception/custom-exceptions/http/UserNotFoundException";
+import { VerificationCodeExpiredException } from "../common/global/exception/custom-exceptions/http/VerificationCodeExpiredException";
+import { VerificationCodeMismatchException } from "../common/global/exception/custom-exceptions/http/VerificationCodeMismatchException";
+import { VerificationCodeNotFoundException } from "../common/global/exception/custom-exceptions/http/VerificationCodeNotFoundException";
 import { UserRepository } from "./user.repository";
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class UserManager {

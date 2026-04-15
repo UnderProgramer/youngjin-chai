@@ -10,9 +10,10 @@ import {
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
-import { WsUnauthorizedException } from 'src/common/global/exception/custom-exceptions/ws/WsUnauthorizedException';
-import { AuthService } from 'src/user/auth/auth.service';
-import { UserManager } from 'src/user/user.manager';
+import { EmailVerificationRequiredException } from '../common/global/exception/custom-exceptions/ws/EmailVerificationRequiredException';
+import { WsUnauthorizedException } from '../common/global/exception/custom-exceptions/ws/WsUnauthorizedException';
+import { AuthService } from '../user/auth/auth.service';
+import { UserManager } from '../user/user.manager';
 import { ChatService } from './chat.service';
 
 @WebSocketGateway({
@@ -20,7 +21,7 @@ import { ChatService } from './chat.service';
     cors: '*',
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
-    @WebSocketServer() server: Server;
+    @WebSocketServer() server!: Server;
 
     constructor(
         private readonly authService: AuthService,
@@ -51,6 +52,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         try {
             const payload = await this.authService.variftyAccessToken(token);
             const user = await this.userManager.getUserByIdOrThrow(payload.sub);
+
+            if (!user.is_verified) {
+                client.emit(this.errorMessage, new EmailVerificationRequiredException().getError());
+                client.disconnect();
+                return;
+            }
 
             client.data.user = user;
             this.logger.log(`connected    : ${client.id}`);
@@ -101,4 +108,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
         return { invited: true };
     }
+
+    
 }

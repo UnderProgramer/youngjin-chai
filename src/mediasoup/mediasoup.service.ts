@@ -22,12 +22,18 @@ export class MediasoupService implements OnModuleInit{
         const worker = await mediasoup.createWorker({
             rtcMinPort: 10000 + numOfWorker * 1000,
             rtcMaxPort: 10999 + numOfWorker * 1000,
+            logLevel: 'warn'
         });
 
         worker.on('died', () => {
             console.error('mediasoup worker has died');
-            setTimeout(() => process.exit(1), 2000);
+            setTimeout(() => this.createWorker(numOfWorker), 2000);
         })
+
+        setInterval(async () => {
+            const usage = await worker.getResourceUsage();
+            console.log(`Worker ${numOfWorker} CPU:`, usage.ru_utime);
+        }, 5000);
 
         this.workers.push({ 
             id: numOfWorker,
@@ -58,5 +64,42 @@ export class MediasoupService implements OnModuleInit{
         worker.routers.set(roomId, router)
         
         return router;
+    }
+
+     // 핵심 추가 부분
+    async getPipedRouter(roomId: string, targetWorkerIndex: number) {
+        const sourceRouter = await this.getRouter(roomId);
+        const targetWorker = this.workers[targetWorkerIndex];
+
+        // 이미 pipe된 router가 있으면 재사용
+        const pipedRoomId = `${roomId}-piped-${targetWorkerIndex}`;
+        if (targetWorker.routers.has(pipedRoomId)) {
+            return targetWorker.routers.get(pipedRoomId);
+        }
+
+        // 새 router 만들고 pipe 연결
+        const targetRouter = await targetWorker.worker.createRouter({ mediaCodecs });
+        targetWorker.routers.set(pipedRoomId, targetRouter);
+
+        await sourceRouter!.pipeToRouter({
+            producerId: undefined as any, // producer 생길 때마다 pipe
+            router: targetRouter,
+        });
+
+        return targetRouter;
+    }
+
+    // worker 부하 확인해서 가장 여유있는 worker 반환
+    async getLeastLoadedWorker() {
+        const usages = await Promise.all(
+            this.workers.map(async (w) => ({
+                worker: w,
+                usage: await w.worker.getResourceUsage(),
+            }))
+        );
+
+        return usages.reduce((min, cur) =>
+            cur.usage.ru_utime < min.usage.ru_utime ? cur : min
+        ).worker;
     }
 }

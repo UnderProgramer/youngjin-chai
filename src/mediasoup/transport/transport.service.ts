@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { Peer } from "./types/types.transport";
 import { MediasoupService } from "../mediasoup.service";
 import * as mediasoup from 'mediasoup'
-import { TransportNotFoundException } from "src/common/global/exception/custom-exceptions/ws/TransportNotFoundException";
+import { TransportNotFoundException } from "../../common/global/exception/custom-exceptions/ws/TransportNotFoundException";
 
 @Injectable()
 export class TransportService {
@@ -38,11 +38,11 @@ export class TransportService {
         
     }
     
-    getProducersByRoom(roomId: string): string[] {
+    getProducersByRoom(roomId: string, excludePeerId?: string): string[] {
         const producerIds: string[] = []
 
         this.peers.forEach(peer => {
-            if (peer.roomId === roomId) {
+            if (peer.roomId === roomId && peer.peerId !== excludePeerId) {
                 peer.producers.forEach((_, producerId) => {
                     producerIds.push(producerId)
                 })
@@ -57,10 +57,19 @@ export class TransportService {
         peerId: string,
         direction: 'send' | 'recv',
     ) {
-        const router = await this.mediasoupService.getRouter(roomId);
+        let router;
+        const leastLoaderWorker = await this.mediasoupService.getLeastLoadedWorker();
+
+        if (direction === 'send') {
+            // 송신은 항상 방 고유 router 사용
+            router = await this.mediasoupService.getRouter(roomId);
+        } else {
+            // 수신은 가장 여유있는 worker router 사용
+            router = await this.mediasoupService.getPipedRouter(roomId, leastLoaderWorker.id);
+        }
 
         const transport = await router!.createWebRtcTransport({
-            listenIps: [{ ip: '0.0.0.0', announcedIp: '127.0.0.1'}],
+            listenIps: [{ ip: '0.0.0.0', announcedIp: process.env.MEDIASOUP_ANNOUNCED_IP || '127.0.0.1'}],
             enableUdp: true,
             enableTcp: true,
             enableSctp: true,
@@ -81,7 +90,7 @@ export class TransportService {
             peer.recvTransport.set(transport.id, transport)
         }
        
-        //transport.enableTraceEvent(['probation', 'bwe']);
+        transport.enableTraceEvent(['probation', 'bwe']);
 
         transport.on("routerclose", () => {
             peer.sendTransport.delete(transport.id);
@@ -182,6 +191,7 @@ export class TransportService {
             producerId,
             rtpCapabilities,
             paused: true,
+            preferredLayers: { spatialLayer: 2, temporalLayer: 2 }
         });
 
         peer.consumers.set(consumer.id, consumer)
@@ -216,7 +226,8 @@ export class TransportService {
     }
 
     async handleDisconnect(peerId : string) {
-        const peer = this.getPeer(peerId)
+         const peer = this.peers.get(peerId);
+        if (!peer) return;
 
         peer.sendTransport.forEach(t => t.close());
         peer.recvTransport.forEach(t => t.close())
@@ -225,5 +236,4 @@ export class TransportService {
 
         this.peers.delete(peerId);
     }
-
 }

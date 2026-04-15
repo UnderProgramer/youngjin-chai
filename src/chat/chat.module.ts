@@ -1,8 +1,9 @@
 import { Module } from "@nestjs/common";
-import { prismaClient } from "prisma/prisma.client";
-import { AuthService } from "src/user/auth/auth.service";
-import { UserManager } from "src/user/user.manager";
-import { UserRepository } from "src/user/user.repository";
+import { prismaClient } from "../../prisma/prisma.client";
+import { AuthService } from "../user/auth/auth.service";
+import { EmailVerifiedGuard } from "../user/auth/email-verified.guard";
+import { UserManager } from "../user/user.manager";
+import { UserRepository } from "../user/user.repository";
 import { ChatController } from "./chat.controller";
 import { ChatGateway } from "./chat.gateway";
 import { ChatManager } from "./chat.manager";
@@ -20,6 +21,7 @@ import { ChatService } from "./chat.service";
         ChatManager,
         UserRepository,
         UserManager,
+        EmailVerifiedGuard,
         prismaClient,
     ],
 })

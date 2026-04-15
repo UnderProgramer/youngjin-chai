@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
-import { prismaClient } from "prisma/prisma.client";
+import { prismaClient } from "../../prisma/prisma.client";
 import { Prisma } from "@prisma/client";
+import { UploadProfileRequest } from "./dto/upload-profile-request";
 
 @Injectable()
 export class UserRepository {
@@ -108,6 +109,36 @@ export class UserRepository {
             data: {
                 reporter: reporterId,
                 reason,
+            },
+        });
+    }
+
+    async upsertProfilePicture(data : UploadProfileRequest) {
+        return this.prisma.profilePicture.upsert({
+            where: { userid : data.userId },
+            create: {
+                picture_name: data.pictureName,
+                picture_url: data.pictureUrl,
+                original_name: data.originalName,
+                userid: data.userId,
+                updated_at: data.updatedAt,
+            },
+            update: {
+                picture_name: data.pictureName,
+                picture_url: data.pictureUrl,
+                original_name: data.originalName,
+                updated_at: data.updatedAt,
+            },
+        })
+    }
+
+    async getProfilePictureByUserId(userId: number) {
+        return this.prisma.profilePicture.findUnique({
+            where: { userid: userId },
+            select: {
+                picture_url: true,
+                original_name: true,
+                updated_at: true,
             },
         });
     }
