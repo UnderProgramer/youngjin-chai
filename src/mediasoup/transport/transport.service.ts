@@ -152,7 +152,6 @@ export class TransportService {
             producerId,
             rtpCapabilities,
             paused: true,
-            preferredLayers: { spatialLayer: 2, temporalLayer: 2 }
         });
 
         peer.consumers.set(consumer.id, consumer)
