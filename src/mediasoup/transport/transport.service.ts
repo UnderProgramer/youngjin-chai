@@ -7,40 +7,31 @@ import { TransportNotFoundException } from "../../common/global/exception/custom
 @Injectable()
 export class TransportService {
     private peers = new Map<string, Peer>()
-    
-    constructor(private readonly mediasoupService : MediasoupService){}
+
+    constructor(private readonly mediasoupService: MediasoupService) {}
 
     private getPeer(peerId: string): Peer {
-        let peer = this.peers.get(peerId);
-
-        if (!peer) {
-            throw new Error("Not Found Peer")
-        }
-
+        const peer = this.peers.get(peerId);
+        if (!peer) throw new Error("Not Found Peer");
         return peer;
     }
 
     createPeer(peerId: string, roomId: string, userId: string) {
-        if(this.peers.has(peerId)) {
-            return
-        }
+        if (this.peers.has(peerId)) return;
 
-        let peer = {
+        this.peers.set(peerId, {
             peerId,
             roomId,
             userId,
             sendTransport: new Map(),
             recvTransport: new Map(),
-            producers : new Map(),
+            producers: new Map(),
             consumers: new Map()
-        }
-        this.peers.set(peerId, peer)
-        
+        });
     }
-    
+
     getProducersByRoom(roomId: string, excludePeerId?: string): string[] {
         const producerIds: string[] = []
-
         this.peers.forEach(peer => {
             if (peer.roomId === roomId && peer.peerId !== excludePeerId) {
                 peer.producers.forEach((_, producerId) => {
@@ -48,48 +39,32 @@ export class TransportService {
                 })
             }
         })
-
         return producerIds
     }
 
-    async createTransport(
-        roomId: string,
-        peerId: string,
-        direction: 'send' | 'recv',
-    ) {
-        let router;
-        const leastLoaderWorker = await this.mediasoupService.getLeastLoadedWorker();
-
-        if (direction === 'send') {
-            // 송신은 항상 방 고유 router 사용
-            router = await this.mediasoupService.getRouter(roomId);
-        } else {
-            // 수신은 가장 여유있는 worker router 사용
-            router = await this.mediasoupService.getPipedRouter(roomId, leastLoaderWorker.id);
-        }
+    async createTransport(roomId: string, peerId: string, direction: 'send' | 'recv') {
+        // send/recv 모두 같은 room router 사용 — 이게 핵심 수정
+        const router = await this.mediasoupService.getRouter(roomId);
 
         const transport = await router!.createWebRtcTransport({
-            listenIps: [{ ip: '0.0.0.0', announcedIp: process.env.MEDIASOUP_ANNOUNCED_IP || '127.0.0.1'}],
+            listenIps: [{ ip: '0.0.0.0', announcedIp: process.env.MEDIASOUP_ANNOUNCED_IP || '127.0.0.1' }],
             enableUdp: true,
             enableTcp: true,
             enableSctp: true,
             preferUdp: true,
             numSctpStreams: { OS: 1024, MIS: 1024 },
-            initialAvailableOutgoingBitrate : 2_000_000,
-            appData :{
-                peerId,
-                direction
-            }
+            initialAvailableOutgoingBitrate: 2_000_000,
+            appData: { peerId, direction }
         });
-        
+
         const peer = this.getPeer(peerId)
 
-        if(transport.appData.direction === 'send') {
+        if (direction === 'send') {
             peer.sendTransport.set(transport.id, transport)
         } else {
             peer.recvTransport.set(transport.id, transport)
         }
-       
+
         transport.enableTraceEvent(['probation', 'bwe']);
 
         transport.on("routerclose", () => {
@@ -97,7 +72,7 @@ export class TransportService {
             peer.recvTransport.delete(transport.id);
         })
         transport.on("dtlsstatechange", (state) => {
-            if(state === "closed" || state === "failed"){
+            if (state === "closed" || state === "failed") {
                 transport.close()
             }
         })
@@ -122,45 +97,31 @@ export class TransportService {
         throw new Error("Transport not found");
     }
 
-    async connectTransport(
-        transportId: string,
-        peerId : string,
-        dtlsParameters: mediasoup.types.DtlsParameters,
-    ){
+    async connectTransport(transportId: string, peerId: string, dtlsParameters: mediasoup.types.DtlsParameters) {
         const transport = this.getTransport(transportId, peerId)
-        if (!transport) {
-            throw new NotFoundException('Transport not found');
-        }
-
         await transport.transport.connect({ dtlsParameters });
     }
 
-
     async producer(
         transportId: string,
-        peerId : string,
-        kind : mediasoup.types.MediaKind,
-        rtpParameters : mediasoup.types.RtpParameters,
-        mediaTag : 'camera' | 'screen' | 'mic'
+        peerId: string,
+        kind: mediasoup.types.MediaKind,
+        rtpParameters: mediasoup.types.RtpParameters,
+        mediaTag: 'camera' | 'screen' | 'mic'
     ) {
         const peer = this.getPeer(peerId)
         const transport = this.getTransport(transportId, peerId);
-        
-        if (!transport) throw new TransportNotFoundException();
-        if(transport.direction !== 'send') throw new Error('Transport direction is not send');
 
+        if (transport.direction !== 'send') throw new Error('Transport direction is not send');
 
         const producer = await transport.transport.produce({
             kind,
             rtpParameters,
-            appData : {
-                peerId,
-                mediaTag,
-            }
+            appData: { peerId, mediaTag }
         });
 
         peer.producers.set(producer.id, producer);
-        
+
         producer.on("transportclose", () => {
             peer.producers.delete(producer.id)
         })
@@ -178,12 +139,12 @@ export class TransportService {
         const peer = this.getPeer(peerId)
         const transport = this.getTransport(transportId, peerId)
 
-        if (!transport) throw new TransportNotFoundException();
         if (transport.direction !== 'recv') throw new Error('Transport direction is not recv')
 
         const router = await this.mediasoupService.getRouter(roomId);
+        if(!router) throw new NotFoundException('Router not found for room: ' + roomId)
 
-        if (!router!.canConsume({ producerId, rtpCapabilities })) {
+        if (!router.canConsume({ producerId, rtpCapabilities })) {
             throw new Error('Cannot consume');
         }
 
@@ -196,43 +157,28 @@ export class TransportService {
 
         peer.consumers.set(consumer.id, consumer)
 
-        consumer.on("transportclose", () => {
-            peer.consumers.delete(consumer.id)
-        })
-
-        consumer.on("producerclose", () => {
-            peer.consumers.delete(consumer.id)
-        })
+        consumer.on("transportclose", () => { peer.consumers.delete(consumer.id) })
+        consumer.on("producerclose", () => { peer.consumers.delete(consumer.id) })
 
         return consumer;
     }
 
-    async resumeConsumers(
-        consumerId : string,
-        peerId : string,
-    ) {
+    async resumeConsumers(consumerId: string, peerId: string) {
         const peer = this.getPeer(peerId)
         const consumer = peer.consumers.get(consumerId)
-        
-        if(!consumer) {
-            throw new Error('Consumer not found')
-        }
-
-        if(!consumer.paused) {
-            return;
-        }
-
+        if (!consumer) throw new Error('Consumer not found')
+        if (!consumer.paused) return;
         await consumer.resume()
     }
 
-    async handleDisconnect(peerId : string) {
-         const peer = this.peers.get(peerId);
+    async handleDisconnect(peerId: string) {
+        const peer = this.peers.get(peerId);
         if (!peer) return;
 
         peer.sendTransport.forEach(t => t.close());
-        peer.recvTransport.forEach(t => t.close())
+        peer.recvTransport.forEach(t => t.close());
         peer.consumers.forEach(c => c.close());
-        peer.producers.forEach(p => p.close())
+        peer.producers.forEach(p => p.close());
 
         this.peers.delete(peerId);
     }
