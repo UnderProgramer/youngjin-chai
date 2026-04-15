@@ -2,7 +2,9 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { Peer } from "./types/types.transport";
 import { MediasoupService } from "../mediasoup.service";
 import * as mediasoup from 'mediasoup'
-import { TransportNotFoundException } from "../../common/global/exception/custom-exceptions/ws/TransportNotFoundException";
+
+// transport.service.ts createTransport 상단
+console.log('ANNOUNCED_IP:', JSON.stringify(process.env.MEDIASOUP_ANNOUNCED_IP))
 
 @Injectable()
 export class TransportService {

@@ -30,11 +30,6 @@ export class MediasoupService implements OnModuleInit{
             setTimeout(() => this.createWorker(numOfWorker), 2000);
         })
 
-        setInterval(async () => {
-            const usage = await worker.getResourceUsage();
-            console.log(`Worker ${numOfWorker} CPU:`, usage.ru_utime);
-        }, 5000);
-
         this.workers.push({ 
             id: numOfWorker,
             worker,
