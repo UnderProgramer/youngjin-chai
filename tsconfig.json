@@ -2,7 +2,7 @@
   "compilerOptions": {
     "module": "commonjs",
     "types" : ["node", "express", "multer"],
-    "moduleResolution": "bundler",
+    "moduleResolution": "node",
     "esModuleInterop": true,
     "isolatedModules": true,
     "declaration": true,
